@@ -1,21 +1,8 @@
-const passport = require('passport'),
-      LocalStrategy = require('passport-local').Strategy,
-      AdminUser = require('../src/backend/models/index').AdminUser;
+"use strict"
 
-passport.use(new LocalStrategy({
-    usernameField: "email",
-    passwordField: "password"
-}, AdminUser.authenticate));
+const passport = require("passport"),
+      User = require("../src/backend/models/index").User
 
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-passport.deserializeUser((id, done) => {
-    return AdminUser.findById(id)
-    .nodeify(done)
-    .catch((err) => {
-        require('../lib/logger').logError(err, 'failed to deserialize');
-        done(null, false);
-    });
-});
+passport.use(User.createStrategy())
+passport.serializeUser(User.serializeUser())
+passport.deserializeUser(User.deserializeUser())

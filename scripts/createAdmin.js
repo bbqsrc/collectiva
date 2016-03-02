@@ -1,33 +1,32 @@
-'use strict';
+"use strict" /* eslint-disable no-console,no-process-env,no-process-exit */
 
-var models = require('../models');
-var readline = require('readline');
+const models = require("../models")
+const readline = require("readline")
 
-var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-var email = process.env.ACCEPTANCE_EMAIL;
-var password = process.env.ACCEPTANCE_PASSWORD;
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+})
+const envEmail = process.env.ACCEPTANCE_EMAIL
+const envPassword = process.env.ACCEPTANCE_PASSWORD
 
-if(email && password) {
-    models.AdminUser.create({email: email, password: password}).then(function(user) {
-        console.log('User "' + user.email + '" created.');
-        process.exit(0);
-    }).catch(function(err) {
-        console.log('Error: Could not make admin user');
-        process.exit(0);
-    });
+function createUser(email, password) {
+  models.User.create({ email, password }).then(user => {
+    console.log(`User "${user.email} created.`)
+    process.exit(0)
+  }).catch(err => {
+    console.error("Error: Could not make admin user")
+    console.error(err.stack)
+    process.exit(1)
+  })
+}
+
+if (envEmail && envPassword) {
+  createUser(envEmail, envPassword)
 } else {
-    rl.question('Email: ', function (email) {
-        rl.question('Password: ', function (password) {
-            models.AdminUser.create({email: email, password: password}).then(function (user) {
-                console.log('User "' + user.email + '" created.');
-                process.exit(0);
-            }).catch(function (err) {
-                console.log('Error: ' + err);
-                process.exit(1);
-            });
-        });
-    });
+  rl.question("Email: ", email => {
+    rl.question("Password: ", password => {
+      createUser(email, password)
+    })
+  })
 }
