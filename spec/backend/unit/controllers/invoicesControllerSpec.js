@@ -1,158 +1,157 @@
-'use strict';
+"use strict" /* eslint-disable prefer-const */
 
-const specHelper = require('../../../support/specHelper'),
-    sinon = specHelper.sinon,
-    Q = specHelper.Q,
-    invoiceService = require('../../../../src/backend/services/invoiceService'),
-    paymentValidator = require('../../../../src/lib/paymentValidator'),
-    ChargeCardError = specHelper.ChargeCardError;
+const invoiceService = require("../../../../src/backend/services/invoiceService"),
+      paymentValidator = require("../../../../src/lib/paymentValidator"),
+      ChargeCardError = require("../../../../src/backend/errors/ChargeCardError"),
+      Promise = require("q") // TODO: remove dep
 
-var invoicesController = require('../../../../src/backend/controllers/invoicesController');
+const invoicesController = require("../../../../src/backend/controllers/invoicesController")
 
-describe("invoicesController", () => {
-    let res, statusStub, responseJsonStub, renderLocationStub, renderStub;
+describe("invoicesController", function() {
+  let res,
+      responseJsonStub
 
-    beforeEach(() => {
-        renderLocationStub = sinon.stub();
-        renderStub = sinon.stub();
-        statusStub = sinon.stub();
-        responseJsonStub = sinon.stub();
-        statusStub.returns({render: renderLocationStub, json: responseJsonStub});
-        res = {status: statusStub, render: renderStub};
-    });
+  beforeEach(function() {
+    const renderStub = sinon.stub()
+    const statusStub = sinon.stub()
+    const renderLocationStub = sinon.stub()
 
-    describe("updateInvoiceHandler", () => {
-        let updateInvoiceHandler,
-            goodRequest,
-            payForInvoiceStub, payForInvoicePromise,
-            validatePaymentStub,
-            expectedInvoiceValues;
+    responseJsonStub = sinon.stub()
 
-        beforeEach(() => {
-            payForInvoiceStub = sinon.stub(invoiceService, 'payForInvoice');
-            validatePaymentStub = sinon.stub(paymentValidator, 'isValid');
+    statusStub.returns({
+      render: renderLocationStub,
+      json: responseJsonStub
+    })
 
-            goodRequest = {
-                body: {
-                    memberEmail: 'sherlock@holmes.co.uk',
-                    totalAmount: 60.1,
-                    paymentType: 'stripe',
-                    stripeToken: 'token',
-                    invoiceId: 1
-                }
-            };
+    res = {
+      status: statusStub,
+      render: renderStub
+    }
+  })
 
-            expectedInvoiceValues = {
-                totalAmount: 60.1,
-                paymentType: 'stripe',
-                stripeToken: 'token',
-                invoiceId: 1
-            };
+  describe("updateInvoiceHandler", function() {
+    let payForInvoiceStub,
+        validatePaymentStub
 
-            payForInvoicePromise = Q.defer();
-            payForInvoiceStub
-                .withArgs(expectedInvoiceValues)
-                .returns(payForInvoicePromise.promise);
+    function generateGoodRequest() {
+      return {
+        body: {
+          memberEmail: "sherlock@holmes.co.uk",
+          totalAmount: 60.1,
+          paymentType: "stripe",
+          stripeToken: "token",
+          invoiceId: 1
+        }
+      }
+    }
 
+    const expectedInvoiceValues = {
+      totalAmount: 60.1,
+      paymentType: "stripe",
+      stripeToken: "token",
+      invoiceId: 1
+    }
 
-        });
+    beforeEach(function() {
+      payForInvoiceStub = sinon.stub(invoiceService, "payForInvoice")
+      validatePaymentStub = sinon.stub(paymentValidator, "isValid")
 
-        afterEach(() => {
-            invoiceService.payForInvoice.restore();
-            paymentValidator.isValid.restore();
-        });
+      payForInvoiceStub
+        .withArgs(expectedInvoiceValues)
+        .returns(Promise.resolve())
+    })
 
-        describe('when it receives a good request', () => {
-            it('responds with success', (done) => {
-                validatePaymentStub.returns([]);
-                payForInvoicePromise.resolve();
+    afterEach(function() {
+      invoiceService.payForInvoice.restore()
+      paymentValidator.isValid.restore()
+    })
 
-                invoicesController.updateInvoiceHandler(goodRequest, res)
-                    .finally(() => {
-                        expect(res.status).toHaveBeenCalledWith(200);
-                    }).then(done, done.fail);
-            });
-        });
+    describe("when it receives a good request", function() {
+      it("responds with success", function*() {
+        validatePaymentStub.returns([])
 
-        describe('when validation fails', () => {
-            it('responds with status 400', (done) => {
-                validatePaymentStub.returns(['totalAmount']);
-                invoicesController.updateInvoiceHandler(goodRequest, res)
-                .catch((error) => {
-                    expect(error).not.toBeNull();
-                    expect(invoiceService.payForInvoice).not.toHaveBeenCalled();
-                    expect(res.status).toHaveBeenCalledWith(400);
-                }).then(done, done.fail);
-            });
-        });
+        yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
+        expect(res.status).to.have.been.calledWith(200)
+      })
+    })
 
-        describe('when pay for invoice fails', () => {
-            it('responds with a server error', (done) => {
-                validatePaymentStub.returns([]);
-                let errorMessage = 'Seriously, we still don\'t have any damn bananas.';
-                payForInvoicePromise.reject(errorMessage);
+    describe("when validation fails", function() {
+      it("responds with status 400", function*() {
+        validatePaymentStub.returns(["totalAmount"])
 
-                invoicesController.updateInvoiceHandler(goodRequest, res)
-                .finally(() => {
-                    expect(res.status).toHaveBeenCalledWith(500);
-                    expect(responseJsonStub).toHaveBeenCalledWith({errors: 'An error has occurred internally.'});
-                }).then(done, done.fail);
-            });
+        try {
+          yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
+          // TODO see if this is needed
+          expect("this should not be reached").to.be.false
+        } catch (error) {
+          expect(error).to.exist
+          expect(invoiceService.payForInvoice).not.to.have.been.called
+          expect(res.status).to.have.been.calledWith(400)
+        }
+      })
+    })
 
-            it('responds with a bad request if charge card failed', (done) => {
-                validatePaymentStub.returns([]);
-                let errorMessage = 'Seriously, we still don\'t have any damn bananas.';
-                let error = new ChargeCardError(errorMessage);
+    describe("when pay for invoice fails", function() {
+      it("responds with a server error", function*() {
+        const errorMessage = "Seriously, we still don't have any damn bananas."
 
-                payForInvoicePromise.reject(error);
+        validatePaymentStub.returns([])
+        payForInvoiceStub.returns(Promise.reject(errorMessage))
 
-                invoicesController.updateInvoiceHandler(goodRequest, res)
-                .finally(() => {
-                    expect(res.status).toHaveBeenCalledWith(400);
-                    expect(responseJsonStub).toHaveBeenCalledWith({errors: errorMessage});
-                }).then(done, done.fail);
-            });
-        });
-    });
+        yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
+        expect(res.status).to.have.been.calledWith(500)
+        expect(responseJsonStub).to.have.been.calledWith({
+          errors: "An error has occurred internally."
+        })
+      })
 
-    describe('acceptPayment', () => {
-        let acceptInvoiceStub, acceptInvoicePromise, req, reference = 'ful81';
+      it("responds with a bad request if charge card failed", function*() {
+        validatePaymentStub.returns([])
 
-        beforeEach(() => {
-            acceptInvoicePromise = Q.defer();
-            acceptInvoiceStub = sinon.stub(invoiceService, 'acceptPayment');
-            acceptInvoiceStub.returns(acceptInvoicePromise.promise);
-            req = {params: {reference: reference}};
-        });
+        const errorMessage = "Seriously, we still don't have any damn bananas."
+        const error = new ChargeCardError(errorMessage)
 
-        afterEach(() => {
-            acceptInvoiceStub.restore();
-        });
+        payForInvoiceStub.returns(Promise.reject(error))
 
-        it('Should retrieve the unaccepted payments', (done) => {
-            acceptInvoicePromise.resolve();
+        yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
+        expect(res.status).to.have.been.calledWith(400)
+        expect(responseJsonStub).to.have.been.calledWith({ errors: errorMessage })
+      })
+    })
+  })
 
-            let promise = invoicesController.acceptPayment(req, res);
+  describe("acceptPayment", function() {
+    const reference = "ful81"
 
-            promise.then(() => {
-                expect(acceptInvoiceStub).toHaveBeenCalled();
-            }).then(done, done.fail)
-                .catch(done.fail);
-        });
+    let req,
+        acceptInvoiceStub
 
-        it('Should throw an', (done) => {
-            acceptInvoicePromise.reject();
+    beforeEach(function() {
+      acceptInvoiceStub = sinon.stub(invoiceService, "acceptPayment")
+      acceptInvoiceStub.returns(Promise.resolve())
+      req = { params: { reference } }
+    })
 
-            let promise = invoicesController.acceptPayment(req, res);
+    afterEach(function() {
+      acceptInvoiceStub.restore()
+    })
 
-            promise.then(() => {
-                done.fail('Should not go into then when promise rejected');
-            }).finally(() => {
-                expect(res.status).toHaveBeenCalledWith(500);
-                expect(responseJsonStub).toHaveBeenCalledWith({errors: 'Payment could not be accepted'});
-                done();
-            });
-        });
+    it("Should retrieve the unaccepted payments", function*() {
+      yield invoicesController.acceptPayment(req, res)
+      expect(acceptInvoiceStub).to.have.been.called
+    })
 
-    });
-});
+    it("Should throw an", function*() {
+      acceptInvoiceStub.returns(Promise.reject())
+
+      try {
+        yield invoicesController.acceptPayment(req, res)
+      } catch (error) {
+        expect(res.status).to.have.been.calledWith(500)
+        expect(responseJsonStub).to.have.been.calledWith({
+          errors: "Payment could not be accepted"
+        })
+      }
+    })
+  })
+})

@@ -1,196 +1,197 @@
-'use strict';
+"use strict"
 
-const specHelper = require('../../../support/specHelper'),
-      sinon = specHelper.sinon,
-      Q = specHelper.Q,
-      invoiceService = require('../../../../src/backend/services/invoiceService'),
-      memberService = require('../../../../src/backend/services/memberService'),
-      messagingService = require('../../../../src/backend/services/messagingService'),
-      memberValidator = require('../../../../src/lib/memberValidator');
+const invoiceService = require("../../../../src/backend/services/invoiceService"),
+      memberService = require("../../../../src/backend/services/memberService"),
+      messagingService = require("../../../../src/backend/services/messagingService"),
+      memberValidator = require("../../../../src/lib/memberValidator"),
+      Promise = require("q") // TODO: remove dep
 
-var membersController = require('../../../../src/backend/controllers/membersController');
+const membersController = require("../../../../src/backend/controllers/membersController")
+const newMemberHandler = membersController.newMemberHandler
 
-describe('membersController', () => {
+const residentialAddress = {
+  address: "221b Baker St",
+  suburb: "London",
+  country: "England",
+  state: "VIC",
+  postcode: "1234"
+}
 
-    describe('newMemberHandler', () => {
-        let newMemberHandler,
-            goodRequest, res,
-            residentialAddress, postalAddress,
-            createMemberStub, createMemberPromise,
-            validateMemberStub, sendVerificationEmailPromise,
-            createInvoiceStub, createInvoicePromise,
-            sendVerificationEmailStub;
+const postalAddress = {
+  address: "47 I dont want your spam St",
+  suburb: "Moriarty",
+  country: "USA",
+  state: "NM",
+  postcode: "5678"
+}
 
-        beforeEach(() => {
-            newMemberHandler = membersController.newMemberHandler;
-            createMemberStub = sinon.stub(memberService, 'createMember');
-            createInvoiceStub = sinon.stub(invoiceService, 'createEmptyInvoice');
-            validateMemberStub = sinon.stub(memberValidator, 'isValid');
-            sendVerificationEmailStub = sinon.stub(messagingService, 'sendVerificationEmail');
-            res = {status: sinon.stub().returns({json: sinon.spy()})};
+function generateGoodRequest() {
+  return {
+    body: {
+      firstName: "Sherlock",
+      lastName: "Holmes",
+      email: "sherlock@holmes.co.uk",
+      gender: "detective genius",
+      dateOfBirth: "22/12/1900",
+      primaryPhoneNumber: "0396291146",
+      secondaryPhoneNumber: "0394291146",
+      residentialAddress,
+      postalAddress,
+      membershipType: "full"
+    }
+  }
+}
 
-            residentialAddress = {
-                address: '221b Baker St',
-                suburb: 'London',
-                country: 'England',
-                state: 'VIC',
-                postcode: '1234'
-            };
-            postalAddress = {
-                address: '47 I dont want your spam St',
-                suburb: 'Moriarty',
-                country: 'USA',
-                state: 'NM',
-                postcode: '5678'
-            };
+describe("membersController", function() {
+  describe("newMemberHandler", function() {
+    let validateMemberStub,
+        createMemberStub,
+        createInvoiceStub,
+        sendVerificationEmailStub,
+        jsonStub,
+        res
 
-            goodRequest = {
-                body: {
-                    firstName: 'Sherlock',
-                    lastName: 'Holmes',
-                    email: 'sherlock@holmes.co.uk',
-                    gender: 'detective genius',
-                    dateOfBirth: '22/12/1900',
-                    primaryPhoneNumber: '0396291146',
-                    secondaryPhoneNumber: '0394291146',
-                    residentialAddress: residentialAddress,
-                    postalAddress: postalAddress,
-                    membershipType: 'full'
-                }
-            };
+    beforeEach(function() {
+      const goodRequest = generateGoodRequest()
 
-            createMemberPromise = Q.defer();
-            createMemberStub
-                .withArgs(goodRequest.body)
-                .returns(createMemberPromise.promise);
+      createMemberStub = sinon.stub(memberService, "createMember")
+        .withArgs(goodRequest.body)
 
-            createInvoicePromise = Q.defer();
-            createInvoiceStub
-                .withArgs(goodRequest.body.email, goodRequest.body.membershipType)
-                .returns(createInvoicePromise.promise);
+      createInvoiceStub = sinon.stub(invoiceService, "createEmptyInvoice")
+        .withArgs(goodRequest.body.email, goodRequest.body.membershipType)
 
-            sendVerificationEmailPromise = Q.defer();
-            sendVerificationEmailStub.returns(sendVerificationEmailPromise.promise);
-        });
+      validateMemberStub = sinon.stub(memberValidator, "isValid")
 
-        afterEach(() => {
-            memberService.createMember.restore();
-            invoiceService.createEmptyInvoice.restore();
-            memberValidator.isValid.restore();
-            messagingService.sendVerificationEmail.restore();
-        });
+      sendVerificationEmailStub = sinon.stub(messagingService, "sendVerificationEmail")
 
-        describe('when it receives a good request', () => {
-            let expectedMemberCreateValues;
-            let createdMember = {id:'1234', membershipType: 'full', email: 'sherlock@holmes.co.uk'};
+      jsonStub = sinon.spy()
 
-            beforeEach(() => {
-                validateMemberStub.returns([]);
-                createMemberPromise.resolve(createdMember);
-                createInvoicePromise.resolve({id:'1'});
-                sendVerificationEmailPromise.resolve();
+      res = {
+        status: sinon.stub().returns({ json: jsonStub })
+      }
+    })
 
-                expectedMemberCreateValues = {
-                    firstName: 'Sherlock',
-                    lastName: 'Holmes',
-                    email: 'sherlock@holmes.co.uk',
-                    gender: 'detective genius',
-                    dateOfBirth: '22/12/1900',
-                    primaryPhoneNumber: '0396291146',
-                    secondaryPhoneNumber: '0394291146',
-                    residentialAddress: residentialAddress,
-                    postalAddress: postalAddress,
-                    membershipType: 'full'
-                };
-            });
+    afterEach(function() {
+      memberService.createMember.restore()
+      invoiceService.createEmptyInvoice.restore()
+      memberValidator.isValid.restore()
+      messagingService.sendVerificationEmail.restore()
+    })
 
-            it('creates a new member', (done) => {
-                newMemberHandler(goodRequest, res)
-                .finally(() => {
-                    expect(res.status).toHaveBeenCalledWith(200);
-                    expect(res.status().json).toHaveBeenCalledWith({invoiceId: '1', newMember: {email: createdMember.email}});
-                    expect(messagingService.sendVerificationEmail).toHaveBeenCalledWith(createdMember);
-                }).then(done, done.fail);
-            });
-        });
+    describe("when it receives a good request", function() {
+      // let expectedMemberCreateValues
 
-        describe('when validation fails', () => {
-            it('responds with status 400',(done) => {
-                validateMemberStub.returns(['firstName']);
-                newMemberHandler(goodRequest, res);
+      const createdMember = {
+        id: "1234",
+        membershipType: "full",
+        email: "sherlock@holmes.co.uk"
+      }
 
-                expect(memberService.createMember).not.toHaveBeenCalled();
-                expect(res.status).toHaveBeenCalledWith(400);
-                done();
-            });
-        });
-    });
+      beforeEach(function() {
+        validateMemberStub.returns([])
+        createMemberStub.returns(Promise.resolve(createdMember))
+        createInvoiceStub.returns(Promise.resolve({ id: "1" }))
+        sendVerificationEmailStub.returns(Promise.resolve())
 
-    describe('verify', () => {
-      let res, req;
-      let verificationStub;
-      let verificationPromise;
+        // TODO investigate why this is entirely unused
+        /*
+        expectedMemberCreateValues = {
+          firstName: "Sherlock",
+          lastName: "Holmes",
+          email: "sherlock@holmes.co.uk",
+          gender: "detective genius",
+          dateOfBirth: "22/12/1900",
+          primaryPhoneNumber: "0396291146",
+          secondaryPhoneNumber: "0394291146",
+          residentialAddress,
+          postalAddress,
+          membershipType: "full"
+        }
+        */
+      })
 
-      beforeEach(() => {
-        req = {};
-        res = {
-          redirect: sinon.spy(),
-          render: sinon.spy(),
-          sendStatus: sinon.spy()
-        };
+      it("creates a new member", function*() {
+        yield newMemberHandler(generateGoodRequest(), res)
 
-        verificationPromise = Q.defer();
-        verificationStub = sinon.stub(memberService, 'verify').returns(verificationPromise.promise);
-      });
+        expect(res.status.calledWith(200)).to.be.true
+        expect(jsonStub.calledWith({
+          invoiceId: "1",
+          newMember: { email: createdMember.email }
+        })).to.be.true
+        expect(messagingService.sendVerificationEmail.calledWith(createdMember)).to.be.true
+      })
+    })
 
-      afterEach(() => {
-        memberService.verify.restore();
-      });
+    describe("when validation fails", function() {
+      it("responds with status 400", function*() {
+        validateMemberStub.returns(["firstName"])
+        yield newMemberHandler(generateGoodRequest(), res)
 
-      it('should return 400 when the hash is not valid', (done) => {
-        req = {
-          params: {
-            hash: 'ZZZZZooooWrong'
-          }
-        };
+        expect(memberService.createMember.called).to.be.false
+        expect(res.status.calledWith(400)).to.be.true
+      })
+    })
+  })
 
-        membersController.verify(req, res)
-        .catch(() => {
-          expect(verificationStub).not.toHaveBeenCalled();
-          expect(res.sendStatus).toHaveBeenCalledWith(400);
-        }).then(done, done.fail);
-      });
+  describe("verify", function() {
+    let res,
+        verificationStub
 
-      it('redirect to /verified when account successfully verified', (done) => {
-        verificationPromise.resolve({email: 'sherlock@holmes.co.uk', verified: true});
+    beforeEach(function() {
+      res = {
+        redirect: sinon.spy(),
+        render: sinon.spy(),
+        sendStatus: sinon.spy()
+      }
 
-        req = {
-          params: {
-            hash: '1d225bd0-57b5-4b87-90fc-f76ddc997e57'
-          }
-        };
+      verificationStub = sinon.stub(memberService, "verify")
+    })
 
-        membersController.verify(req, res)
-        .finally(() => {
-          expect(verificationStub).toHaveBeenCalledWith(req.params.hash);
-          expect(res.redirect).toHaveBeenCalledWith('/verified');
-        }).then(done, done.fail);
-      });
+    afterEach(function() {
+      memberService.verify.restore()
+    })
 
-      it('should return a 400 when the account could not be verified', (done) => {
-        verificationPromise.reject('The account could not be verified');
+    it("should return 400 when the hash is not valid", function*() {
+      const req = {
+        params: {
+          hash: "ZZZZZooooWrong"
+        }
+      }
 
-        req = {
-          params: {
-            hash: '1d225bd0-57b5-4b87-90fc-f76ddc997e57'
-          }
-        };
+      try {
+        yield membersController.verify(req, res)
+      } catch (error) {
+        expect(verificationStub.called).to.be.false
+        expect(res.sendStatus.calledWith(400)).to.be.true
+      }
+    })
 
-        membersController.verify(req, res)
-        .finally(() => {
-          expect(verificationStub).toHaveBeenCalled();
-          expect(res.sendStatus).toHaveBeenCalledWith(400);
-        }).then(done, done.fail);
-      });
-    });
-});
+    it("redirect to /verified when account successfully verified", function*() {
+      verificationStub.returns(Promise.resolve({ email: "sherlock@holmes.co.uk", verified: true }))
+
+      const req = {
+        params: {
+          hash: "1d225bd0-57b5-4b87-90fc-f76ddc997e57"
+        }
+      }
+
+      yield membersController.verify(req, res)
+      expect(verificationStub.calledWith(req.params.hash)).to.be.true
+      expect(res.redirect.calledWith("/verified")).to.be.true
+    })
+
+    it("should return a 400 when the account could not be verified", function*() {
+      verificationStub(Promise.reject("The account could not be verified"))
+
+      const req = {
+        params: {
+          hash: "1d225bd0-57b5-4b87-90fc-f76ddc997e57"
+        }
+      }
+
+      yield membersController.verify(req, res)
+      expect(verificationStub.calledWith(req.params.hash)).to.be.true
+      expect(res.sendStatus.calledWith(400)).to.be.true
+    })
+  })
+})

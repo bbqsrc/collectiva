@@ -1,90 +1,87 @@
-'use strict';
+"use strict"
 
-const specHelper = require('../../../support/specHelper'),
-    sinon = specHelper.sinon,
-    Promise = specHelper.models.Sequelize.Promise,
-    invoiceService = require('../../../../src/backend/services/invoiceService'),
-    memberService = require('../../../../src/backend/services/memberService');
+const invoiceService = require("../../../../src/backend/services/invoiceService"),
+      memberService = require("../../../../src/backend/services/memberService"),
+      adminController = require("../../../../src/backend/controllers/adminController"),
+      Promise = require("bluebird").Promise
 
-let adminController = require('../../../../src/backend/controllers/adminController');
+describe("adminController", function() {
+  let resMock, reqMock
+  let jsonStub, memberList
 
-describe('adminController', () => {
-    let res,
-        req;
-    let jsonStub,
-        memberList;
+  beforeEach(function() {
+    jsonStub = sinon.stub()
 
-    beforeEach(() => {
-        jsonStub = sinon.stub();
+    resMock = {
+      status: sinon.stub().returns({ json: jsonStub })
+    }
 
-        res = {
-            status: sinon.stub().returns({json: jsonStub})
-        };
+    reqMock = {}
 
-        req = {};
+    memberList = [{ firstName: "bob" }]
+  })
 
-        memberList = [{firstName: 'bob'}];
-    });
+  describe("membersList", function() {
+    const membersList = adminController.membersList
 
-    describe('membersList', () => {
-        let membersList = adminController.membersList;
+    beforeEach(function() {
+      sinon.stub(memberService, "list")
+    })
 
-        beforeEach(() => {
-            sinon.stub(memberService, 'list');
-        });
+    afterEach(function() {
+      memberService.list.restore()
+    })
 
-        afterEach(() => {
-            memberService.list.restore();
-        });
+    it("responds with a list of members", function*() {
+      memberService.list.returns(Promise.resolve(memberList))
 
-        it('responds with a list of members', (done) => {
-            memberService.list.returns(Promise.resolve(memberList));
+      yield membersList(reqMock, resMock)
 
-            membersList(req, res).finally(() => {
-                expect(res.status).toHaveBeenCalled(200);
-                expect(jsonStub).toHaveBeenCalledWith({members: memberList});
-            }).then(done, done.fail);
-        });
+      expect(resMock.status.calledWith(200)).to.be.true
+      expect(jsonStub.args[0][0].members[0].firstName).to.equal("bob")
+    })
 
-        it('responds with an error list of members', (done) => {
-            let error = 'Liar liar pants on fire';
-            memberService.list.returns(Promise.reject(error));
+    it("responds with an error list of members", function*() {
+      const error = "Liar liar pants on fire"
 
-            membersList(req, res).finally(() => {
-                expect(res.status).toHaveBeenCalled(500);
-                expect(jsonStub).toHaveBeenCalledWith({error: error});
-            }).then(done, done.fail);
-        });
-    });
+      memberService.list.returns(Promise.reject(error))
 
-    describe('unconfirmedPaymentsMembersList', () => {
-        let membersList = adminController.unconfirmedPaymentsMembersList;
+      yield membersList(reqMock, resMock)
 
-        beforeEach(() => {
-            sinon.stub(invoiceService, 'unconfirmedPaymentList');
-        });
+      expect(resMock.status.calledWith(500)).to.be.true
+      expect(jsonStub.calledWith({ error })).to.be.true
+    })
+  })
 
-        afterEach(() => {
-            invoiceService.unconfirmedPaymentList.restore();
-        });
+  describe("unconfirmedPaymentsMembersList", function() {
+    const membersList = adminController.unconfirmedPaymentsMembersList
 
-        it('responds with a list of unconfirmed payments', (done) => {
-            invoiceService.unconfirmedPaymentList.returns(Promise.resolve(memberList));
+    beforeEach(function() {
+      sinon.stub(invoiceService, "unconfirmedPaymentList")
+    })
 
-            membersList(req, res).finally(() => {
-                expect(res.status).toHaveBeenCalled(200);
-                expect(jsonStub).toHaveBeenCalledWith({members: memberList});
-            }).then(done, done.fail);
-        });
+    afterEach(function() {
+      invoiceService.unconfirmedPaymentList.restore()
+    })
 
-        it('responds with an error list of unconfirmed payments', (done) => {
-            let error = 'Liar liar pants on fire';
-            invoiceService.unconfirmedPaymentList.returns(Promise.reject(error));
+    it("responds with a list of unconfirmed payments", function*() {
+      invoiceService.unconfirmedPaymentList.returns(Promise.resolve(memberList))
 
-            membersList(req, res).finally(() => {
-                expect(res.status).toHaveBeenCalled(500);
-                expect(jsonStub).toHaveBeenCalledWith({error: error});
-            }).then(done, done.fail);
-        });
-    });
-});
+      yield membersList(reqMock, resMock)
+
+      expect(resMock.status.calledWith(200)).to.be.true
+      expect(jsonStub.args[0][0].members[0].firstName).to.equal("bob")
+    })
+
+    it("responds with an error list of unconfirmed payments", function*() {
+      const error = "Liar liar pants on fire"
+
+      invoiceService.unconfirmedPaymentList.returns(Promise.reject(error))
+
+      yield membersList(reqMock, resMock)
+
+      expect(resMock.status.calledWith(500)).to.be.true
+      expect(jsonStub.calledWith({ error })).to.be.true
+    })
+  })
+})

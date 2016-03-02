@@ -14,6 +14,8 @@ try {
   logger.alert("Could not find stripe config file")
 }
 
+module.exports.hasConfig = !!config
+
 function getSecretKey() {
   const envSecretKey = process.env.STRIPE_SECRET_KEY
 
@@ -46,9 +48,11 @@ function chargeCard(stripeToken, totalAmount) {
   const stripe = Stripe(getSecretKey())
 
   return Q(stripe.charges.create({
+    // TODO: wtf?
     amount: parseFloat(totalAmount) * 100,
     currency: "aud",
     source: stripeToken.id,
+    // TODO: wtf?
     description: "Pirate party membership."
   }))
 }

@@ -1,75 +1,76 @@
-'use strict';
-require('../../support/specHelper.js');
-let messagingService = require('../../../src/backend/services/messagingService');
-let sinon = require('sinon');
-let member = {email: 'sherlock@holmes.co.uk', verificationHash: 'shhhaaaaaa'};
-let config = require('config');
+"use strict"
 
-let nodemailer = require('nodemailer');
+require("../../support/specHelper.js")
 
-describe('thing', () => {
-    describe('sending emails', () => {
-        let transportStub;
-        let configStub;
-        let sendMailSpy;
+const messagingService = require("../../../src/backend/services/messagingService")
+const sinon = require("sinon")
+const member = { email: "sherlock@holmes.co.uk", verificationHash: "shhhaaaaaa" }
+const config = require("config")
 
-        beforeEach(() => {
-            configStub = sinon.stub(config, 'get');
-            configStub.withArgs('email.sendEmails').returns(true);
-        });
+require("co-mocha")
+const chai = require("chai")
+const expect = chai.expect
 
-        afterEach(() => {
-            nodemailer.createTransport.restore();
-            config.get.restore();
-        });
+chai.use(require("chai-as-promised"))
 
-        describe('happy', () => {
-            beforeEach(() => {
-                transportStub = { sendMail: function(options, callback) { callback(false,true); }};
-                sendMailSpy = sinon.spy(transportStub, 'sendMail');
-                sinon.stub(nodemailer, 'createTransport').returns(transportStub);
-            });
-
-            it('sends the email to the member', (done) => {
-                messagingService.sendVerificationEmail(member)
-                    .then((result) => {
-                        expect(sendMailSpy).toHaveBeenCalled();
-                    })
-                    .then(done, done.fail);
-            });
-
-            it('does not send an email if disabled in configuration', (done) => {
-                configStub.withArgs('email.sendEmails').returns(false);
-
-                messagingService.sendVerificationEmail(member)
-                    .finally(() => {
-                        expect(sendMailSpy).not.toHaveBeenCalled();
-                    })
-                    .then(done, done.fail);
-            });
-        });
-
-        describe('sad', () => {
-
-            beforeEach(() => {
-                transportStub = { sendMail: function(options, callback) { callback(true,false); }};
-                sendMailSpy = sinon.spy(transportStub, 'sendMail');
-                sinon.stub(nodemailer, 'createTransport').returns(transportStub);
-            });
-
-            it('throws an error when something unexpected happens', (done) => {
-                messagingService.sendVerificationEmail(member)
-                    .then((result) => {
-                        done.fail('no error!');
-                    })
-                    .catch((error) => {
-                        expect(error).not.toBeNull();
-                        done();
-                    });
-            });
-        });
+const nodemailer = require("nodemailer")
 
 
+describe("Sending emails", function() {
+  let transportStub
+  let configStub
+  let sendMailSpy
 
-    });
-});
+  beforeEach(function() {
+    configStub = sinon.stub(config, "get")
+    configStub.withArgs("email.sendEmails").returns(true)
+  })
+
+  afterEach(function() {
+    nodemailer.createTransport.restore()
+    config.get.restore()
+  })
+
+  describe("upon success", function() {
+    beforeEach(function() {
+      transportStub = {
+        sendMail(options, callback) {
+          callback(false, true)
+        }
+      }
+
+      sendMailSpy = sinon.spy(transportStub, "sendMail")
+      sinon.stub(nodemailer, "createTransport").returns(transportStub)
+    })
+
+    it("should send an email to the member", function*() {
+      yield messagingService.sendVerificationEmail(member)
+      expect(sendMailSpy.called).to.be.true
+    })
+
+    it("should not send an email if disabled in configuration", function*() {
+      configStub.withArgs("email.sendEmails").returns(false)
+
+      yield messagingService.sendVerificationEmail(member)
+      expect(sendMailSpy.called).to.be.false
+    })
+  })
+
+  describe("upon failure", function() {
+    beforeEach(function() {
+      transportStub = {
+        sendMail(options, callback) {
+          callback(true, false)
+        }
+      }
+
+      sendMailSpy = sinon.spy(transportStub, "sendMail")
+      sinon.stub(nodemailer, "createTransport").returns(transportStub)
+    })
+
+    it("should throw an error when something unexpected happens", function*() {
+      expect(messagingService.sendVerificationEmail(member))
+        .to.eventually.be.rejected
+    })
+  })
+})

@@ -1,54 +1,50 @@
-'use strict';
+"use strict"
 
-const specHelper = require('../../../support/specHelper.js'),
-      sinon = specHelper.sinon,
-      AdminUser = require('../../../../src/backend/models/index').AdminUser;
+const specHelper = require("../../../support/specHelper.js"),
+      expect = require("chai").expect,
+      AdminUser = require("../../../../src/backend/models/index").AdminUser
 
-describe('AdminUser', () => {
-    let email = 'iamapirate@thehighseas.com',
-        password = 'yaaaar';
+require("co-mocha")
 
-    describe('authenticate', () => {
-        let cb;
+describe("AdminUser", function() {
+  beforeEach(specHelper.resetTestDatabase)
 
-        beforeEach(() => {
-            cb = sinon.stub();
-        });
+  const email = "test@email.invalid",
+        password = "testpassword"
 
-        it('calls back with the user if the user exists and can be authenticated', (done) => {
-            return AdminUser.create({ email: email, password: password })
-                .then(() => {
-                    return AdminUser.authenticate(email, password, cb);
-                }).then(() => {
-                    expect(cb).toHaveBeenCalledWith(null, jasmine.objectContaining({
-                        email: email
-                    }));
-                }).then(done, done.fail);
-        });
+  describe("authenticate", function() {
+    it("calls back with the user if the user exists and can be authenticated", function*(done) {
+      yield AdminUser.create({ email, password })
 
-        it('calls back with false if the user exists but cannot be authenticated', (done) => {
-            return AdminUser.create({ email: email, password: password })
-                .then(() => {
-                    return AdminUser.authenticate(email, 'wrongpassword', cb);
-                }).then(() => {
-                    expect(cb).toHaveBeenCalledWith(null, false);
-                }).then(done, done.fail);
-        });
+      AdminUser.authenticate(email, password, (err, res) => {
+        expect(res.email).to.equal(email)
+        done(err)
+      })
+    })
 
-        it('calls back with false if the user does not exist', (done) => {
-            return AdminUser.authenticate(email, password, cb)
-                .then(() => {
-                    expect(cb).toHaveBeenCalledWith(null, false);
-                }).then(done, done.fail);
-        });
-    });
+    it("calls back with false if the user exists but cannot be authenticated", function*(done) {
+      yield AdminUser.create({ email, password })
 
-    describe('instance', () => {
-        it('has an encrypted password', (done) => {
-        return AdminUser.create({ email: email, password: password })
-            .then((user) => {
-                expect(user.password).not.toBe(password);
-            }).then(done, done.fail);
-        });
-    });
-});
+      AdminUser.authenticate(email, "badpassword", (err, res) => {
+        expect(res).to.be.false
+        done(err)
+      })
+    })
+
+    it("calls back with false if the user does not exist", function*(done) {
+      AdminUser.authenticate("no@person.invalid", "irrelevant", (err, res) => {
+        expect(res).to.be.false
+        done(err)
+      })
+    })
+  })
+
+  describe("instance", function() {
+    it("has an encrypted password", function*() {
+      const user = yield AdminUser.create({ email, password })
+
+      expect(user.password).to.exist
+      expect(user.password).not.to.equal(password)
+    })
+  })
+})

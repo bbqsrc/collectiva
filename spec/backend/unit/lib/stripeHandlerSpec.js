@@ -1,49 +1,43 @@
-'use strict';
+"use strict"
 
-const specHelper = require('../../../support/specHelper'),
-      sinon = specHelper.sinon,
-      Q = specHelper.Q;
+const stripe = require("stripe"),
+      stripeHandler = require("../../../../src/backend/lib/stripeHandler")
 
-describe('stripeHandler', () => {
-
-  let createStub, stripe,
-      stripeToken, totalAmount,
-      expectedNewCharge, createPromise,
-      stripeHandler;
+describe("stripeHandler", function() {
+  this.timeout(10000)
 
 
-  beforeEach(() => {
-    createStub = sinon.stub();
+  if (stripeHandler.hasConfig) {
+    let createStub,
+        stripeToken,
+        totalAmount,
+        expectedNewCharge
 
-    stripe = require('stripe');
-    sinon.stub(stripe, 'Stripe')
-        .returns({charges: {create: createStub}});
+    beforeEach(function() {
+      createStub = sinon.stub()
 
-    stripeHandler = require('../../../../src/backend/lib/stripeHandler');
+      sinon.stub(stripe, "Stripe")
+        .returns({ charges: { create: createStub } })
 
-    stripeToken = { id:1 };
-    totalAmount = 60;
-    expectedNewCharge = {
-          amount: 6000,
-          currency: 'aud',
-          source: 1,
-          description: 'Pirate party membership.'
-        };
+      stripeToken = { id: 1 }
+      totalAmount = 60
+      expectedNewCharge = {
+        amount: 6000,
+        currency: "aud",
+        source: 1,
+        description: "Pirate party membership."
+      }
+    })
 
-    createPromise = Q.defer();
-    createStub.returns(createPromise.promise);
-  });
+    afterEach(function() {
+      stripe.Stripe.restore()
+    })
 
-  afterEach(() => {
-      stripe.Stripe.restore();
-  });
-
-  it('Charge Credit Card', (done) => {
-      createPromise.resolve();
-
-      stripeHandler.chargeCard(stripeToken, totalAmount)
-        .then(() => {
-            expect(createStub).toHaveBeenCalledWith(expectedNewCharge);
-          }).then(done, done.fail);
-  });
-});
+    it("Charge Credit Card", function*() {
+      yield stripeHandler.chargeCard(stripeToken, totalAmount)
+      expect(createStub.calledWith(expectedNewCharge)).to.be.true
+    })
+  } else {
+    it("should have a defined config but currently does not")
+  }
+})

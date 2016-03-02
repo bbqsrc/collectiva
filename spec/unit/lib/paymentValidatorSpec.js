@@ -1,95 +1,84 @@
-'use strict';
+"use strict"
 
-require('../../support/specHelper');
+require("../../support/specHelper")
 
-var paymentValidator = require('../../../src/lib/paymentValidator');
+const paymentValidator = require("../../../src/lib/paymentValidator")
 
-describe('paymentValidator', () => {
-    describe('isValid', () => {
-        let validPayment = {
-                'totalAmount': '100',
-                'paymentType': 'cheque',
-                'invoiceId': '1'
-        };
+require("co-mocha")
+const chai = require("chai")
+const expect = chai.expect
 
-        it('should return empty array of errors on valid payment', () => {
-            expect(paymentValidator.isValid(validPayment)).toEqual([]);
-        });
+describe("paymentValidator", function() {
+  describe("isValid", function() {
+    const validPayment = {
+      totalAmount: "100",
+      paymentType: "cheque",
+      invoiceId: "1"
+    }
 
-        it('should return array of errors on null payment', () => {
-            expect(paymentValidator.isValid(null).length).not.toBe(0);
-        });
-    });
+    it("should return empty array of errors on valid payment", function() {
+      expect(paymentValidator.isValid(validPayment)).to.be.empty
+    })
 
-    describe('isValidAmount', () => {
-        it('Should return true given a numberic amount string', () => {
-            expect(paymentValidator.isValidAmount('123.2')).toBe(true);
-        });
+    it("should return array of errors on null payment", function() {
+      expect(paymentValidator.isValid(null)).not.to.be.empty
+    })
+  })
 
-        it('Should return true given a postive numberic no less than 1', () => {
-            expect(paymentValidator.isValidAmount(2)).toBe(true);
-        });
+  describe("isValidAmount", function() {
+    it("Should return true given a numberic amount string", function() {
+      expect(paymentValidator.isValidAmount("123.2")).to.be.true
+    })
 
-        [
-            '',
-            '-1',
-            0.1,
-            -1,
-            'abc',
-            ''
-        ].forEach((testCase) => {
-            it(`Should return false if name is ${testCase}`, () => {
-                expect(paymentValidator.isValidAmount(testCase)).toBe(false);
-            });
-        });
-    });
+    it("Should return true given a postive numberic no less than 1", function() {
+      expect(paymentValidator.isValidAmount(2)).to.be.true
+    })
 
-    describe('isValidPaymentType', () => {
-        it('Should return true given a normal string', () => {
-            expect(paymentValidator.isValidPaymentType('deposit')).toBe(true);
-        });
+    ;["", "-1", 0.1, -1, "abc", ""].forEach((testCase) => {
+      it(`Should return false if name is ${testCase}`, function() {
+        expect(paymentValidator.isValidAmount(testCase)).to.be.false
+      })
+    })
+  })
 
-        [
-            '',
-            null
-        ].forEach((testCase) => {
-            it(`Should return false if name is ${testCase}`, () => {
-                expect(paymentValidator.isValidPaymentType(testCase)).toBe(false);
-            });
-        });
-    });
+  describe("isValidPaymentType", function() {
+    it("Should return true given a normal string", function() {
+      expect(paymentValidator.isValidPaymentType("deposit")).to.be.true
+    })
 
-    describe('isValidId', () => {
-        it('Should return true given a numberic id', () => {
-            expect(paymentValidator.isValidId('1')).toBe(true);
-            expect(paymentValidator.isValidId(1)).toBe(true);
-        });
+    ;["", null].forEach((testCase) => {
+      it(`Should return false if name is ${testCase}`, function() {
+        expect(paymentValidator.isValidPaymentType(testCase)).to.be.false
+      })
+    })
+  })
 
-        [
-            '',
-            null,
-            'string'
-        ].forEach((testCase) => {
-            it(`Should return false if id is ${testCase}`, () => {
-                expect(paymentValidator.isValidId(testCase)).toBe(false);
-            });
-        });
-    });
+  describe("isValidId", function() {
+    it("Should return true given a numberic id", function() {
+      expect(paymentValidator.isValidId("1")).to.be.true
+      expect(paymentValidator.isValidId(1)).to.be.true
+    })
 
-    describe('isValidNoContribute', () => {
-        let validPayment = {
-                'totalAmount': 0,
-                'paymentType': 'noContribute',
-                'invoiceId': '1'
-        };
+    ;["", null, "string"].forEach((testCase) => {
+      it(`Should return false if id is ${testCase}`, function() {
+        expect(paymentValidator.isValidId(testCase)).to.be.false
+      })
+    })
+  })
 
-        it('should return empty array of errors on valid payment', () => {
-            expect(paymentValidator.isValidNoContribute(validPayment)).toEqual([]);
-        });
+  describe("isValidNoContribute", function() {
+    const validPayment = {
+      totalAmount: 0,
+      paymentType: "noContribute",
+      invoiceId: "1"
+    }
 
-        it('should return array of errors on null payment', () => {
-            expect(paymentValidator.isValidNoContribute(null).length).not.toBe(0);
-        });
-    });
+    it("should return empty array of errors on valid payment", function() {
+      expect(paymentValidator.isValidNoContribute(validPayment)).to.be.empty
+    })
 
-});
+    it("should return array of errors on null payment", function() {
+      expect(paymentValidator.isValidNoContribute(null)).not.to.be.empty
+    })
+  })
+})

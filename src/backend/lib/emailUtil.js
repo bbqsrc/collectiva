@@ -2,7 +2,8 @@
 
 const nodemailer = require("nodemailer"),
       sendmailTransport = require("nodemailer-sendmail-transport"),
-      config = require("config").email
+      config = require("config").email,
+      Promise = require("bluebird").Promise
 
 const emailConfig = {
   path: config.server,
