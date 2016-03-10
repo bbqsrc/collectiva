@@ -1,6 +1,6 @@
-# Project-M
+# Collectiva
 
-[![Build Status](https://snap-ci.com/ppau/project-m/branch/master/build_image)](https://snap-ci.com/ppau/project-m/branch/master)
+**Still cleaning up the Project M codebase, come back soon! :smile:**
 
 ## Dev setup
 
@@ -8,7 +8,7 @@
 0. Install [ansible](https://docs.ansible.com/ansible/intro_installation.html)
 0. Clone the project
 
-        git clone https://github.com/ppau/project-m.git
+        git clone https://github.com/bbqsrc/collectiva
 
 0. Start the vagrant vm
 
@@ -109,24 +109,7 @@
 
 0. curl -o db/dumps/latest.dump `heroku pg:backups public-url`
 
-0. (in the vm) pg_restore --verbose --clean --no-acl --no-owner -h localhost -U project-m -d project-m db/dumps/latest.dump
+0. (in the vm) pg_restore --verbose --clean --no-acl --no-owner -h localhost -U collectiva -d collectiva db/dumps/latest.dump
 
 Happy hacking!
 
-## Optional setup
-
-### JShint
-
-0. Install [plugin](http://jshint.com/install/)
-
-### WebStorm
-
-0. Install [webstorm](https://www.jetbrains.com/webstorm/download/)
-
-0. Open preferences -> Languages and frameworks
-
-0. Change javascript to ECMAScript 6
-
-0. Setup run configuration to node and "javascript/file" to be bin/www
-
-0. Optionally install vagrant plugin

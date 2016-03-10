@@ -10,7 +10,7 @@
     "paypal_email":"paypal@pirateparty.org.au"
   },
   "staging": {
-    "paypal_return_url":"https://project-m-staging.herokuapp.com/",
+    "paypal_return_url":"https://collectiva-staging.herokuapp.com/",
     "paypal_server_url":"https://www.sandbox.paypal.com/cgi-bin/webscr",
     "paypal_email":"paypal@pirateparty.org.au"
   },

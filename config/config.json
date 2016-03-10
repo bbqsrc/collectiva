@@ -1,8 +1,8 @@
 {
     "development": {
-        "username": "project-m",
-        "password": "project-m",
-        "database": "project-m",
+        "username": "collectiva",
+        "password": "collectiva",
+        "database": "collectiva",
         "host": "127.0.0.1",
         "dialect": "postgresql",
         "session": {
@@ -11,9 +11,9 @@
         }
     },
     "test": {
-        "username": "project-m",
-        "password": "project-m",
-        "database": "project-m_test",
+        "username": "collectiva",
+        "password": "collectiva",
+        "database": "collectiva_test",
         "host": "127.0.0.1",
         "dialect": "postgresql",
         "logging": false,

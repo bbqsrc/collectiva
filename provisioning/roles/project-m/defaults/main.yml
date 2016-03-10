@@ -1,10 +1,10 @@
 ---
-repo_url: https://github.com/ppau/project-m.git
+repo_url: https://github.com/ppau/collectiva.git
 git_sha: HEAD
-app_path: /opt/project-m
-app_user: project-m
-logs_dir: /var/log/project-m
-pids_dir: /var/run/project-m
+app_path: /opt/collectiva
+app_user: collectiva
+logs_dir: /var/log/collectiva
+pids_dir: /var/run/collectiva
 node_env: development
 db_password: secret
 session_secret: "i'm a secret teapot"
