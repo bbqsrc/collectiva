@@ -1,7 +1,8 @@
 "use strict"
 
 const Q = require("q"),
-      Stripe = require("stripe").Stripe
+      Stripe = require("stripe").Stripe,
+      logger = require("./logger")
 
 const env = process.env.NODE_ENV || "development"
 
@@ -10,7 +11,7 @@ let config
 try {
   config = require("../../../config/stripe-config.json")[env]
 } catch (e) {
-  console.log("Could not find stripe config file")
+  logger.alert("Could not find stripe config file")
 }
 
 function getSecretKey() {

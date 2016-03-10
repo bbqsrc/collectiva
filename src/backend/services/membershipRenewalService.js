@@ -22,14 +22,23 @@ function start() {
     cronTime: everyDayAt0730,
 
     onTick() {
-      logger.logInfoEvent("[renewal-notification-job-started]")
+      logger.info("member-renewal-service", "Notification process started")
 
       remindMembersToRenew()
-      .then((result) => logger.logInfoEvent("[renewal-notification-job-finished]", `Notifications sent: ${result.length}`))
+      .then((result) => {
+        logger.info("member-renewal-service",
+          `Notifications process finished; sent: ${result.length}`,
+          { notifications: result.length }
+        )
+      })
       .catch((error) => {
-        logger.logError(error.toString(), "[renewal-notification-job-failed]")
+        logger.crit("member-renewal-service",
+          "An error occurred while sending renewal notifications",
+          { error }
+        )
       })
     },
+
     start: false
   })
 

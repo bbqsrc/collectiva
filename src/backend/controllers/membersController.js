@@ -56,7 +56,12 @@ function setupNewMember(req) {
 
 function sendVerificationEmailOffline(data) {
   messagingService.sendVerificationEmail(data.member)
-  .catch(logger.logError)
+  .catch((error) => {
+    logger.error("verify-member:send-email",
+      `An error occurred sending verification email for member ${data.member.id}`,
+      { error }
+    )
+  })
 }
 
 function createEmptyInvoice(createdMember) {
@@ -84,7 +89,6 @@ function sendResponseToUser(res) {
 
 function handleError(res) {
   return error => {
-    logger.logError("membersController", error)
     res.sendStatus(500)
   }
 }
@@ -101,7 +105,13 @@ function newMemberHandler(req, res) {
     .then(createEmptyInvoice)
     .tap(sendResponseToUser(res))
     .tap(sendVerificationEmailOffline)
-    .catch(handleError(res))
+    .catch((error) => {
+      logger.crit("create-member",
+        "An error occurred while creating member",
+        { req, error }
+      )
+      handleError(res)
+    })
 }
 
 function updateMemberHandler(req, res) {
@@ -113,17 +123,23 @@ function updateMemberHandler(req, res) {
   }
 
   return memberService.updateMember(newMember)
-        .then((result) => {
-          res.status(200).json({ newMember: result })
-        })
-        .catch(handleError(res))
+    .then((result) => {
+      res.status(200).json({ newMember: result })
+    })
+    .catch((error) => {
+      logger.crit("update-member",
+        "An error occurred while updating member",
+        { req, error }
+      )
+      handleError(res)
+    })
 }
 
 function verify(req, res) {
   const hash = req.params.hash
 
   if (!memberValidator.isValidVerificationHash(hash)) {
-    logger.logError("[member-verification-failed]", { error: "Invalid input params", hash })
+    logger.warning("verify-member", "Received invalid hash", { req, hash })
     res.sendStatus(400)
     return Q.reject("Invalid Input")
   }
@@ -141,7 +157,7 @@ function renew(req, res) {
   const hash = req.params.hash
 
   if (!memberValidator.isValidVerificationHash(hash)) {
-    logger.logError("[member-verification-failed]", { hash: hash })
+    logger.warning("renew-member", "Received invalid hash", { req, hash })
     res.sendStatus(400)
     return Q.reject("Invalid Input")
   }

@@ -17,13 +17,6 @@ function save(member) {
   return Member.create.bind(Member)(member)
 }
 
-function handleError(message) {
-  return (error) => {
-    logger.logError(error, message)
-    return models.Sequelize.Promise.reject(message)
-  }
-}
-
 function setupMember(newMember) {
   return (residentialAddress, postalAddress) => {
     return {
@@ -44,10 +37,6 @@ function setupMember(newMember) {
   }
 }
 
-function logEvent(saveResult) {
-  logger.logMemberSignUpEvent(saveResult.dataValues)
-}
-
 function getMemberAddresses(newMember) {
   return [
     Q(Address.findOrCreate({ where: newMember.residentialAddress, defaults: newMember.residentialAddress })),
@@ -59,11 +48,13 @@ function createMember(newMember) {
   return Q.all(getMemberAddresses(newMember))
     .spread(setupMember(newMember))
     .then(save)
-    .tap(logEvent)
     .then((savedMember) => {
       return savedMember.dataValues
     })
-    .catch(handleError("Create Member failed"))
+    .catch((error) => {
+      logger.error("create-member", "Failed to create member", { error, member: newMember })
+      return models.Sequelize.Promise.reject("Failed to create member")
+    })
 }
 
 function updateMember(member) {
@@ -92,9 +83,6 @@ function updateMember(member) {
   .then(updatedMember => {
     return Member.update(updatedMember, { where: { email: member.email } })
   })
-  .tap(a => {
-    logger.logMemberUpdateDetailsEvent(a)
-  })
   .catch(error => {
     return Q.reject(error)
   })
@@ -110,9 +98,6 @@ function renewMember(hash) {
       member.lastRenewal = moment().format("L")
       return Member.update(member, { where: { renewalHash: hash } })
         .then(() => member)
-        .tap(a => {
-          logger.logMemberRenewalEvent(a)
-        })
         .catch(error => {
           return Q.reject(error)
         })
@@ -150,7 +135,7 @@ function list() {
 
   return Member.findAll(query)
         .then(transformMembers(transformMember))
-        .catch(handleError("An error has occurred while fetching members"))
+        .catch(() => models.Sequelize.Promise.reject("An error has occurred while fetching members"))
 }
 
 function findForVerification(hash) {
@@ -180,9 +165,7 @@ function markAsVerified(member) {
 }
 
 function sendWelcomeEmailOffline(data) {
-  logger.logInfoEvent("[sending welcome email]", data)
   messagingService.sendWelcomeEmail(data)
-    .catch(logger.logError)
 
   return data
 }
@@ -191,9 +174,8 @@ function verify(hash) {
   return findForVerification(hash)
     .then(markAsVerified)
     .then(sendWelcomeEmailOffline)
-    .tap((verifiedMember) => logger.logInfoEvent("[member-verification-event]", verifiedMember))
     .catch((error) => {
-      logger.logError(error, "[member-verification-failed]")
+      logger.error("verify-member", "Failed to verify member", { error, hash })
       throw new Error("Account could not be verified")
     })
 }
@@ -215,7 +197,7 @@ function findMembershipsExpiringOn(date) {
 
   return Member.findAll(query)
     .then(transformMembers(transformMembershipToRenew))
-    .catch(handleError("[find-members-expiring-on-failed]"))
+    .catch(() => models.Sequelize.Promise.reject("Finding memberships expiring on failed"))
 }
 
 function findMemberByRenewalHash(hash) {

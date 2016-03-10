@@ -5,23 +5,17 @@ const emailUtil = require("../lib/emailUtil"),
       logger = require("../lib/logger"),
       Q = require("q")
 
-function logAndRethrow(message) {
-  return (error) => {
-    logger.logError(error, message)
-    throw new Error(error)
-  }
-}
+function emailLogger(type) {
+  return (o) => {
+    const email = o.options.to
 
-function logAndRethrow(message) {
-  return (error) => {
-    logger.logError(error, message)
-    throw new Error(error)
+    logger.info("messaging-service", `${type} email sent to: ${email}`, { type, email })
   }
 }
 
 const emails = {
   welcome: {
-    logger: logger.logWelcomeEmailSent,
+    logger: emailLogger("welcome"),
     subject: "The Pirate Party - Welcome",
     text() {
       return `Welcome to the Pirate Party!
@@ -36,7 +30,7 @@ const emails = {
     }
   },
   verification: {
-    logger: logger.logVerificationEmailSent,
+    logger: emailLogger("verification"),
     subject: "The Pirate Party - Verify Your Email",
     text(member) {
       return `Hello,
@@ -53,7 +47,7 @@ const emails = {
     }
   },
   renewal: {
-    logger: logger.logMemberRenewalEmail,
+    logger: emailLogger("renewal"),
     subject: "The Pirate Party - Renew Your Membership",
     text(member) {
       return `Hello,
@@ -90,7 +84,12 @@ function sendEmail(member, type) {
       }
     })
     .tap(type.logger)
-    .catch(logAndRethrow("[verification-email-failed]"))
+    .catch((error) => {
+      logger.error("messaging-service", "Sending email caused an error", {
+        error, options, member, type
+      })
+      throw error
+    })
 }
 
 function sendVerificationEmail(member) {

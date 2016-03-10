@@ -11,7 +11,7 @@ let config
 try {
   config = require("../../../config/paypal-config.json")[env]
 } catch (e) {
-  console.error("Could not find paypal config file")
+  logger.alert("Could not find paypal config file")
 }
 
 function getServerUrl() {
@@ -50,7 +50,7 @@ function handleIpn(req, res) {
 
   paypalIpn.verify(req.body, { allow_sandbox: isSandbox }, (err, mes) => { // eslint-disable-line
     if (err) {
-      logger.paypalVerifyFailed(err)
+      logger.crit("payment-processor:paypal", "Failed to verify IPN request", { req, error: err })
       res.sendStatus(400)
     } else if (req.body.payment_status === "Completed" && req.body.receiver_email === getPaypalEmail()) {
       invoiceService.paypalChargeSuccess(req.body.custom, req.body.txn_id)
@@ -60,7 +60,7 @@ function handleIpn(req, res) {
         res.sendStatus(400)
       })
     } else {
-      logger.invalidPaypalIpnRequest(req.body.custom, req.body.txn_id, req.body.payment_status, req.body.receiver_email)
+      logger.crit("payment-processor:paypal", "Received invalid IPN request", { req })
       res.sendStatus(400)
     }
   })

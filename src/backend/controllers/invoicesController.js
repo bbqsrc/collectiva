@@ -17,7 +17,6 @@ function handleError(res) {
     if (error instanceof ChargeCardError) {
       res.status(400).json({ errors: error.message })
     } else {
-      logger.logError("invoicesController", error)
       res.status(500).json({ errors: "An error has occurred internally." })
     }
   }
@@ -54,11 +53,17 @@ function acceptPayment(req, res) {
 
   return invoiceService.acceptPayment(reference)
     .tap(() => {
-      logger.logInfoEvent(["invoice-payment-accepted"], "With reference: " + reference)
+      logger.info("invoice:payment-accepted",
+        `Payment with reference '${reference}' processed`,
+        { req }
+      )
     })
     .then(sendResponseToUser(res))
     .catch((error) => {
-      logger.logError(error, "Payment could not be accepted with reference: " + reference)
+      logger.error("invoice:payment-failed",
+        `Payment with reference '${reference}' failed`,
+        { req, error }
+      )
       res.status(500).json({ errors: "Payment could not be accepted" })
       return Q.reject("Payment could not be accepted")
     })

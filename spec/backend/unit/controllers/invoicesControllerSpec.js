@@ -5,7 +5,6 @@ const specHelper = require('../../../support/specHelper'),
     Q = specHelper.Q,
     invoiceService = require('../../../../src/backend/services/invoiceService'),
     paymentValidator = require('../../../../src/lib/paymentValidator'),
-    logger = specHelper.logger,
     ChargeCardError = specHelper.ChargeCardError;
 
 var invoicesController = require('../../../../src/backend/controllers/invoicesController');
@@ -27,12 +26,11 @@ describe("invoicesController", () => {
             goodRequest,
             payForInvoiceStub, payForInvoicePromise,
             validatePaymentStub,
-            expectedInvoiceValues, loggerStub;
+            expectedInvoiceValues;
 
         beforeEach(() => {
             payForInvoiceStub = sinon.stub(invoiceService, 'payForInvoice');
             validatePaymentStub = sinon.stub(paymentValidator, 'isValid');
-            loggerStub = sinon.stub(logger, 'logError');
 
             goodRequest = {
                 body: {
@@ -62,7 +60,6 @@ describe("invoicesController", () => {
         afterEach(() => {
             invoiceService.payForInvoice.restore();
             paymentValidator.isValid.restore();
-            logger.logError.restore();
         });
 
         describe('when it receives a good request', () => {
@@ -97,7 +94,6 @@ describe("invoicesController", () => {
 
                 invoicesController.updateInvoiceHandler(goodRequest, res)
                 .finally(() => {
-                    expect(logger.logError).toHaveBeenCalledWith('invoicesController');
                     expect(res.status).toHaveBeenCalledWith(500);
                     expect(responseJsonStub).toHaveBeenCalledWith({errors: 'An error has occurred internally.'});
                 }).then(done, done.fail);
@@ -112,7 +108,6 @@ describe("invoicesController", () => {
 
                 invoicesController.updateInvoiceHandler(goodRequest, res)
                 .finally(() => {
-                    expect(logger.logError).not.toHaveBeenCalled();
                     expect(res.status).toHaveBeenCalledWith(400);
                     expect(responseJsonStub).toHaveBeenCalledWith({errors: errorMessage});
                 }).then(done, done.fail);

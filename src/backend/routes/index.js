@@ -7,11 +7,12 @@ const express = require("express"),
       adminController = require("../controllers/adminController"),
       invoicesController = require("../controllers/invoicesController"),
       stripeHandler = require("../lib/stripeHandler"),
-      paypalHandler = require("../lib/paypalHandler")
+      paypalHandler = require("../lib/paypalHandler"),
+      logger = require("../lib/logger")
 
 function requireAuth(req, res, next) {
   if (!req.isAuthenticated()) {
-    require("../lib/logger").logInfoEvent("Attempted unauth access", req.url)
+    logger.warning("routing", `Attempted unauthorised access to: ${req.url}`, { req })
     req.session.messages = "You need to login to view this page"
     res.redirect("/login")
     return

@@ -1,107 +1,89 @@
 "use strict"
+
 const winston = require("winston"),
-      moment = require("moment")
+      models = require("../models")
 
-const winstonLogger = new (winston.Logger)({
+const { Logger, Transport, transports } = winston
+
+// { emerg: 0, alert, crit, error, warning, notice, info, debug: 7 }
+winston.setLevels(winston.config.syslog.levels)
+
+class ActionLogger extends Logger {
+  log(level, action, message, userId, meta) {
+    const data = { action }
+
+    if (typeof userId !== "number") {
+      data.meta = userId
+    } else {
+      data.userId = userId
+      data.meta = meta
+    }
+
+    const pLog = super.log
+
+    return new Promise((resolve, reject) => {
+      pLog(level, message, data, (err) => {
+        return err ? reject(err) : resolve()
+      })
+    })
+  }
+}
+
+class DatabaseTransport extends Transport {
+  constructor(options) {
+    super(options)
+    this.name = "database"
+    this.level = options.level || "info"
+  }
+
+  log(severity, message, data, callback) {
+    const { action, meta, user } = data
+    const timestamp = new Date()
+
+    models.LogEntry.create({
+      timestamp, severity, message, action, user, meta
+    })
+    .then(() => callback(null, true))
+    .catch(err => callback(err, false))
+  }
+}
+
+class ConsoleTransport extends transports.Console {
+  timestamp() {
+    return new Date().toISOString()
+  }
+
+  formatter(opts) {
+    const { action, meta, userId } = opts.meta
+    const message = opts.message || "(no message provided)"
+    const timestamp = opts.timestamp()
+    const level = opts.level.toUpperCase()
+
+    let base = `${timestamp} [${level}] [${action}] ${message}`
+
+    if (userId != null) {
+      base += ` (User: ${userId})`
+    }
+
+    if (meta) {
+      base += `\n  ${JSON.stringify(meta)}`
+    }
+
+    return base
+  }
+}
+
+// TODO: change levels based on env
+const logger = new ActionLogger({
+  levels: winston.config.syslog.levels,
   transports: [
-    new (winston.transports.Console)({
-      timestamp: () => {
-        return `[${moment().format()}]`
-      },
-      formatter: (options) => {
-        const meta = options.meta ? `\n\t${JSON.stringify(options.meta, null, 2)}` : ""
-
-        return `${options.timestamp()} ${options.level.toUpperCase()} ${options.message || ""} ${meta}`
-      }
+    new ConsoleTransport({
+      level: "info"
+    }),
+    new DatabaseTransport({
+      level: "notice"
     })
   ]
 })
 
-
-function logError(error, message) {
-  winstonLogger.error(message || "", { error })
-}
-
-function logInfoEvent(eventId, eventData) {
-  winstonLogger.info(eventId || "unnamed-event", eventData || {})
-}
-
-function logMemberSignUpEvent(member) {
-  logInfoEvent("[member-sign-up-event]", { member })
-}
-
-function logNewInvoiceEvent(invoice) {
-  logInfoEvent("[new-invoice-event]", { invoice })
-}
-
-function logUpdateInvoiceEvent(invoiceId, updatedFields) {
-  logInfoEvent("[update-invoice-event]", { invoiceId, updatedFields })
-}
-
-function logCreateEmptyInvoiceEvent(invoice) {
-  logInfoEvent("[create-emtpy-invoice-event]", { invoice: invoice.dataValues })
-}
-
-function logNewChargeEvent(stripeToken) {
-  logInfoEvent("[new-charge-event]", { stripeToken })
-}
-
-function logNewFailedCharge(stripeToken, error) {
-  logInfoEvent("[new-charge-event-failed]", { stripeToken, error })
-}
-
-function logVerificationEmailSent(email) {
-  logInfoEvent("[verification-email-sent]", { email })
-}
-
-function logWelcomeEmailSent(email) {
-  logInfoEvent("[welcome-email-sent]", { email })
-}
-
-function logNewPaypalUpdate(invoiceId, paypalId) {
-  logInfoEvent("[new-paypal-update]", { invoiceId, paypalId })
-}
-
-function logNewFailedPaypalUpdate(invoiceId, paypalId) {
-  logInfoEvent("[paypal-update-failed]", { invoiceId, paypalId })
-}
-
-function invalidPaypalIpnRequest(invoiceId, txnId, paymentStatus, receiverEmail) {
-  logInfoEvent("[paypal-invalid-ipn-request]", { invoiceId, txnId, paymentStatus, receiverEmail })
-}
-
-function paypalVerifyFailed(error) {
-  logInfoEvent("[paypal-verify-failed]", { error })
-}
-
-function logMemberRenewalEvent(member) {
-  logInfoEvent("[membership-renewed]", { member })
-}
-
-function logMemberRenewalEmail(email) {
-  logInfoEvent("[renewal-notification-email-sent]", { email })
-}
-
-function logMemberUpdateDetailsEvent(member) {
-  logInfoEvent("[member-details-updated]", { member })
-}
-
-module.exports = {
-  logMemberSignUpEvent,
-  logNewInvoiceEvent,
-  logUpdateInvoiceEvent,
-  logNewChargeEvent,
-  logNewFailedCharge,
-  logCreateEmptyInvoiceEvent,
-  logError,
-  logVerificationEmailSent,
-  logWelcomeEmailSent,
-  logNewPaypalUpdate,
-  logNewFailedPaypalUpdate,
-  invalidPaypalIpnRequest,
-  paypalVerifyFailed,
-  logInfoEvent,
-  logMemberRenewalEvent,
-  logMemberRenewalEmail,
-  logMemberUpdateDetailsEvent
-}
+module.exports = logger

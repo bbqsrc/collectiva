@@ -6,28 +6,23 @@ const specHelper = require('../../../support/specHelper'),
     Invoice = models.Invoice,
     sinon = specHelper.sinon,
     Q = specHelper.Q,
-    logger = specHelper.logger,
     moment = require('moment');
 
 var invoiceService = require('../../../../src/backend/services/invoiceService');
 
 describe('invoiceService', () => {
     let createInvoiceStub, updateInvoiceStub,
-        newInvoiceloggerStub, findInvoiceStub,
-        updateInvoiceloggerStub, newInvoice,
+        findInvoiceStub,
+        newInvoice,
         expectedInvoice, createInvoicePromise,
         updateInvoicePromise, findInvoicePromise,
-        createEmptyInvoiceloggerStub, memberEmail, reference,
-        createdEmptyInvoice, invoiceId, errorLoggerStub;
+        memberEmail, reference,
+        createdEmptyInvoice, invoiceId;
 
     beforeEach(() => {
         createInvoiceStub = sinon.stub(models.Invoice, 'create');
         updateInvoiceStub = sinon.stub(models.Invoice, 'update');
         findInvoiceStub = sinon.stub(models.Invoice, 'findOne');
-        newInvoiceloggerStub = sinon.stub(logger, 'logNewInvoiceEvent');
-        updateInvoiceloggerStub = sinon.stub(logger, 'logUpdateInvoiceEvent');
-        createEmptyInvoiceloggerStub = sinon.stub(logger, 'logCreateEmptyInvoiceEvent');
-        errorLoggerStub = sinon.stub(logger, 'logError');
 
         invoiceId = 1;
 
@@ -63,10 +58,6 @@ describe('invoiceService', () => {
         models.Invoice.create.restore();
         models.Invoice.update.restore();
         models.Invoice.findOne.restore();
-        newInvoiceloggerStub.restore();
-        updateInvoiceloggerStub.restore();
-        createEmptyInvoiceloggerStub.restore();
-        errorLoggerStub.restore();
     });
 
     describe('create empty invoice', () => {
@@ -103,10 +94,7 @@ describe('invoiceService', () => {
             updateInvoicePromise.resolve(updatedInovice);
 
             invoiceService.createEmptyInvoice(memberEmail, membershipType)
-                .finally(() => {
-                    expect(logger.logCreateEmptyInvoiceEvent).toHaveBeenCalledWith(createdEmptyInvoice);
-                    expect(logger.logUpdateInvoiceEvent).toHaveBeenCalledWith(1, {reference: 'FUL1'});
-                }).then(done, done.fail);
+                .then(done, done.fail);
         });
 
         it('logs the error when create empty invoice failed', (done) => {
@@ -116,7 +104,6 @@ describe('invoiceService', () => {
             let promise = invoiceService.createEmptyInvoice(memberEmail, membershipType);
 
             promise.catch((error) => {
-                expect(logger.logError).toHaveBeenCalled();
                 expect(error.message).toEqual('An error has occurred internally.');
             }).then(done, done.fail);
         });
@@ -184,8 +171,7 @@ describe('invoiceService', () => {
     describe('pay for invoice', () => {
         describe('Credit Card/Debit Card Payment', () => {
             let stripeHandlerStub, stripeChargePromise,
-            stripeToken, totalAmount,
-            loggerStub, failedLoggerStub;
+            stripeToken, totalAmount;
 
             beforeEach(() => {
                 newInvoice.paymentType = 'stripe';
@@ -199,15 +185,10 @@ describe('invoiceService', () => {
                 stripeHandlerStub = sinon.stub(stripeHandler, 'chargeCard');
                 stripeChargePromise = Q.defer();
                 stripeHandlerStub.returns(stripeChargePromise.promise);
-
-                loggerStub = sinon.stub(logger, 'logNewChargeEvent');
-                failedLoggerStub = sinon.stub(logger, 'logNewFailedCharge');
             });
 
             afterEach(() => {
                 stripeHandler.chargeCard.restore();
-                loggerStub.restore();
-                failedLoggerStub.restore();
             });
 
             it('should call charge card handler to charge the card', (done) => {
@@ -220,20 +201,6 @@ describe('invoiceService', () => {
                         expect(stripeHandler.chargeCard).toHaveBeenCalledWith(newInvoice.stripeToken, newInvoice.totalAmount);
                         done();
                     });
-            });
-
-            it('After charge, logger should log', (done) => {
-                stripeChargePromise.resolve();
-                findInvoicePromise.resolve(createdEmptyInvoice);
-                updateInvoicePromise.resolve({dataValues: expectedInvoice});
-
-                let promise = invoiceService.payForInvoice(newInvoice);
-
-                promise.finally(() => {
-                    expect(logger.logNewChargeEvent).toHaveBeenCalledWith(newInvoice.stripeToken);
-                    expect(logger.logNewFailedCharge).not.toHaveBeenCalled();
-                    done();
-                });
             });
 
             it('update stripe reference with passed in values', (done) => {
@@ -256,20 +223,6 @@ describe('invoiceService', () => {
 
                         expect(Invoice.update).toHaveBeenCalledWith(invoice, {where: {id: 1}});
                     }).then(done, done.fail);
-            });
-
-            it('If charge card fails, logger should log failed event', (done) => {
-                let errorMessage = 'Charge card failed with Stripe!';
-                stripeChargePromise.reject(errorMessage);
-
-                invoiceService.payForInvoice(newInvoice)
-                .then(() => {
-                    done.fail('payForInvoice should have failed, not succeeded, not this time.');
-                })
-                .catch((error) => {
-                    expect(error).not.toBeNull();
-                    expect(logger.logNewFailedCharge).toHaveBeenCalledWith(newInvoice.stripeToken, errorMessage);
-                }).then(done, done.fail);
             });
 
             it('If charge card fails, should reject promise with charg card error', (done) => {
@@ -320,9 +273,7 @@ describe('invoiceService', () => {
             updateInvoicePromise.resolve({dataValues: expectedInvoice});
 
             invoiceService.payForInvoice(newInvoice)
-                .finally(() => {
-                    expect(logger.logUpdateInvoiceEvent).toHaveBeenCalledWith(1, invoice);
-                }).then(done, done.fail);
+                .then(done, done.fail);
         });
 
         it('rejects the promise when update invoice failed, and log the error', (done) => {
@@ -353,56 +304,13 @@ describe('invoiceService', () => {
     });
 
     describe('paypalChargeSuccess', () => {
-        let updateLoggerStub, failedUpdateLoggerStub;
-
-        beforeEach( () => {
-            updateLoggerStub = sinon.stub(logger, 'logNewPaypalUpdate');
-            failedUpdateLoggerStub = sinon.stub(logger, 'logNewFailedPaypalUpdate');
-        });
-
-        afterEach( () => {
-            updateLoggerStub.restore();
-            failedUpdateLoggerStub.restore();
-        });
-
         it('should not call the error logger when finds matching invoice in db' , (done) => {
             updateInvoicePromise.resolve([1]);
 
             let promise = invoiceService.paypalChargeSuccess(23, 1);
 
             promise.finally(() => {
-                expect(updateLoggerStub).toHaveBeenCalled();
-                expect(failedUpdateLoggerStub).not.toHaveBeenCalled();
                 expect(promise.isResolved()).toBe(true);
-            }).then(done, done.fail);
-        });
-
-        it('should call the error logger when no matching invoice id in database' , (done) => {
-            updateInvoicePromise.resolve([0]);
-
-            invoiceService.paypalChargeSuccess(23, 1)
-            .then(() => {
-                done.fail('paypalChargeSuccess should have failed, not succeeded, not this time.');
-            })
-            .catch((error) => {
-                expect(updateLoggerStub).toHaveBeenCalled();
-                expect(failedUpdateLoggerStub).toHaveBeenCalled();
-                expect(error).not.toBeNull();
-            }).then(done, done.fail);
-
-        });
-
-        it('should call the error logger when no multiple matching invoice id in database' , (done) => {
-            updateInvoicePromise.resolve([2]);
-
-            invoiceService.paypalChargeSuccess(23, 1)
-            .then(() => {
-                done.fail('paypalChargeSuccess should have failed, not succeeded, not this time.');
-            })
-            .catch((error) => {
-                expect(updateLoggerStub).toHaveBeenCalled();
-                expect(failedUpdateLoggerStub).toHaveBeenCalled();
-                expect(error).not.toBeNull();
             }).then(done, done.fail);
         });
       });
@@ -504,7 +412,7 @@ describe('invoiceService', () => {
             promise.then(() => {
                 done.fail('Should not go into then when no rows updated');
             }).catch((err) => {
-                expect(err).toEqual('Failed to accept INT8 in the database');
+                expect(err).toEqual("Failed to accept payment: 'INT8'");
                 done();
             });
         });
