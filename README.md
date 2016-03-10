@@ -1,5 +1,7 @@
 # Collectiva
 
+[![Travis](https://img.shields.io/travis/bbqsrc/collectiva.svg)](https://travis.org/bbqsrc/collectiva)
+
 **Still cleaning up the Project M codebase, come back soon! :smile:**
 
 ## Dev setup
@@ -112,4 +114,3 @@
 0. (in the vm) pg_restore --verbose --clean --no-acl --no-owner -h localhost -U collectiva -d collectiva db/dumps/latest.dump
 
 Happy hacking!
-
