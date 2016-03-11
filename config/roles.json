@@ -1,0 +1,27 @@
+{
+  "roles": {
+    "admin": {
+      "inherited": ["secretary"]
+    },
+    "secretary": {
+      "permissions": [
+        "view-member-list",
+        "read-member",
+        "edit-member"
+      ],
+      "inherited": ["treasurer", "auditor"]
+    },
+    "treasurer": {
+      "permissions": [
+        "confirm-payment",
+        "view-payment-list"
+      ]
+    },
+    "auditor": {
+      "permissions": [
+        "view-audit-list",
+        "read-member-audit"
+      ]
+    }
+  }
+}
