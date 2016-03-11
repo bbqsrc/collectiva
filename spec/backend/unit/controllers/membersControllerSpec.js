@@ -4,7 +4,7 @@ const invoiceService = require("../../../../src/backend/services/invoiceService"
       memberService = require("../../../../src/backend/services/memberService"),
       messagingService = require("../../../../src/backend/services/messagingService"),
       memberValidator = require("../../../../src/lib/memberValidator"),
-      Promise = require("q") // TODO: remove dep
+      Promise = require("bluebird").Promise
 
 const membersController = require("../../../../src/backend/controllers/membersController")
 const newMemberHandler = membersController.newMemberHandler
@@ -125,6 +125,7 @@ describe("membersController", function() {
     describe("when validation fails", function() {
       it("responds with status 400", function*() {
         validateMemberStub.returns(["firstName"])
+
         yield newMemberHandler(generateGoodRequest(), res)
 
         expect(memberService.createMember.called).to.be.false
@@ -181,7 +182,7 @@ describe("membersController", function() {
     })
 
     it("should return a 400 when the account could not be verified", function*() {
-      verificationStub(Promise.reject("The account could not be verified"))
+      verificationStub(Promise.reject(new Error("The account could not be verified")))
 
       const req = {
         params: {

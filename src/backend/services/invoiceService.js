@@ -1,6 +1,6 @@
 "use strict"
 
-const Q = require("q"),
+const Promise = require("bluebird").Promise,
       models = require("../models"),
       logger = require("../lib/logger"),
       stripeHandler = require("../lib/stripeHandler"),
@@ -11,7 +11,8 @@ const Q = require("q"),
       Member = models.Member
 
 function findInvoice(invoiceId) {
-  return Q(Invoice.findOne({ where: { id: invoiceId } }))
+  return Invoice
+    .findOne({ where: { id: invoiceId } })
     .then((result) => {
       if (_.isEmpty(result)) {
         throw new Error(`Invoice not found for Id: ${invoiceId}`)
@@ -54,14 +55,13 @@ function handleError(error) {
 function createEmptyInvoice(memberEmail, membershipType) {
   const member = { email: memberEmail, type: membershipType }
 
-  return Q({
+  return Invoice.create({
     memberEmail,
     totalAmountInCents: 0,
     paymentDate: moment().format("L"),
     paymentType: "",
     reference: ""
   })
-  .then(Invoice.create.bind(Invoice))
   .tap((invoice) => logger.debug("create-invoice", "Invoice created", { member, invoice }))
   .then(updateInvoiceReference(membershipType))
   .catch((error) => {
@@ -74,8 +74,10 @@ function createEmptyInvoice(memberEmail, membershipType) {
 }
 
 function chargeCard(stripeToken, totalAmount) {
-  return stripeHandler.chargeCard(stripeToken, totalAmount)
-    .tap(() => {
+  const res = stripeHandler.chargeCard(stripeToken, totalAmount)
+
+  console.log(res)
+  return res.tap(() => {
       logger.debug("payment-processor:stripe",
         `Charged card with token: ${stripeToken}`,
         { token: stripeToken, amount: totalAmount }
@@ -137,7 +139,7 @@ function paypalChargeSuccess(customInvoiceId, paypalId) {
       logger.debug("payment-processor:paypal", "Failed to update transaction", {
         invoiceId: customInvoiceId, id: paypalId
       })
-      return Q.reject(`Failed to update ${customInvoiceId} in the database`)
+      return Promise.reject(new Error(`Failed to update ${customInvoiceId} in the database`))
     }
   }
 
@@ -154,8 +156,6 @@ function paypalChargeSuccess(customInvoiceId, paypalId) {
       })
     })
     .then(checkResultOfUpdate)
-  }).catch((err) => {
-    return Q.reject(err)
   })
 }
 
@@ -196,7 +196,7 @@ function unconfirmedPaymentList() {
       const msg = "An error has occurred while fetching unconfirmed members"
 
       logger.error("invoice-service", msg, { query, error })
-      return models.Sequelize.Promise.reject(msg)
+      return Promise.reject(new Error(msg))
     })
 }
 
@@ -206,7 +206,7 @@ function acceptPayment(reference) {
       const msg = `Failed to accept payment: '${reference}'`
 
       logger.error("accept-payment", msg, { reference })
-      return Q.reject(msg)
+      return Promise.reject(new Error(msg))
     }
   }
 
@@ -223,8 +223,6 @@ function acceptPayment(reference) {
       )
     })
     .then(checkResultOfUpdate)
-  }).catch((err) => {
-    return Q.reject(err)
   })
 }
 

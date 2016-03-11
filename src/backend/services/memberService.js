@@ -1,6 +1,6 @@
 "use strict"
 
-const Q = require("q"),
+const Promise = require("bluebird").Promise,
       models = require("../models"),
       logger = require("../lib/logger"),
       moment = require("moment"),
@@ -39,13 +39,13 @@ function setupMember(newMember) {
 
 function getMemberAddresses(newMember) {
   return [
-    Q(Address.findOrCreate({ where: newMember.residentialAddress, defaults: newMember.residentialAddress })),
-    Q(Address.findOrCreate({ where: newMember.postalAddress, defaults: newMember.postalAddress }))
+    Address.findOrCreate({ where: newMember.residentialAddress, defaults: newMember.residentialAddress }),
+    Address.findOrCreate({ where: newMember.postalAddress, defaults: newMember.postalAddress })
   ]
 }
 
 function createMember(newMember) {
-  return Q.all(getMemberAddresses(newMember))
+  return Promise.all(getMemberAddresses(newMember))
     .spread(setupMember(newMember))
     .then(save)
     .then((savedMember) => {
@@ -53,19 +53,19 @@ function createMember(newMember) {
     })
     .catch((error) => {
       logger.error("create-member", "Failed to create member", { error, member: newMember })
-      return models.Sequelize.Promise.reject("Failed to create member")
+      return Promise.reject(new Error("Failed to create member"))
     })
 }
 
 function updateMember(member) {
-  return Q.all([
-    Q(Member.find({ where: { email: member.email } })),
-    Q(Address.findOrCreate({ where: member.residentialAddress, defaults: member.residentialAddress })),
-    Q(Address.findOrCreate({ where: member.postalAddress, defaults: member.postalAddress }))
+  return Promise.all([
+    Member.find({ where: { email: member.email } }),
+    Address.findOrCreate({ where: member.residentialAddress, defaults: member.residentialAddress }),
+    Address.findOrCreate({ where: member.postalAddress, defaults: member.postalAddress })
   ])
   .spread((user, residentialAddress, postalAddress) => {
     if (!user){
-      return Q.reject("Error: User email does not exist")
+      return Promise.reject(new Error("User email does not exist"))
     }
     return {
       firstName: member.firstName,
@@ -83,9 +83,6 @@ function updateMember(member) {
   .then(updatedMember => {
     return Member.update(updatedMember, { where: { email: member.email } })
   })
-  .catch(error => {
-    return Q.reject(error)
-  })
 }
 
 function renewMember(hash) {
@@ -97,10 +94,6 @@ function renewMember(hash) {
 
       member.lastRenewal = moment().format("L")
       return Member.update(member, { where: { renewalHash: hash } })
-        .then(() => member)
-        .catch(error => {
-          return Q.reject(error)
-        })
     })
 }
 
@@ -134,8 +127,7 @@ function list() {
   }
 
   return Member.findAll(query)
-        .then(transformMembers(transformMember))
-        .catch(() => models.Sequelize.Promise.reject("An error has occurred while fetching members"))
+    .then(transformMembers(transformMember))
 }
 
 function findForVerification(hash) {
@@ -147,9 +139,9 @@ function findForVerification(hash) {
   return Member.findOne(query)
     .then((result) => {
       if (!result) {
-        throw new Error(`Match not found for hash: ${hash}`)
+        return Promise.reject(new Error(`Match not found for hash: ${hash}`))
       }
-      return result
+      return Promise.resolve(result)
     })
 }
 
@@ -176,7 +168,7 @@ function verify(hash) {
     .then(sendWelcomeEmailOffline)
     .catch((error) => {
       logger.error("verify-member", "Failed to verify member", { error, hash })
-      throw new Error("Account could not be verified")
+      return Promise.reject(new Error("Account could not be verified"))
     })
 }
 
@@ -186,7 +178,7 @@ function transformMembershipToRenew(member) {
 
 function findMembershipsExpiringOn(date) {
   if (!date) {
-    return Q.resolve([])
+    return Promise.resolve([])
   }
 
   const lastRenewal = moment(date, "L").subtract(1, "year").toDate()
@@ -197,7 +189,6 @@ function findMembershipsExpiringOn(date) {
 
   return Member.findAll(query)
     .then(transformMembers(transformMembershipToRenew))
-    .catch(() => models.Sequelize.Promise.reject("Finding memberships expiring on failed"))
 }
 
 function findMemberByRenewalHash(hash) {
@@ -205,7 +196,7 @@ function findMemberByRenewalHash(hash) {
     where: { renewalHash: hash }
   }
 
-  return Q(Member.findOne(query))
+  return Member.findOne(query)
     .then((result) => {
       if (!result) {
         throw new Error("No user found with that renewal hash")
@@ -213,7 +204,7 @@ function findMemberByRenewalHash(hash) {
 
       const member = result.dataValues
 
-      return Q.all([
+      return Promise.all([
         Address.findOne({ where: { id: member.residentialAddressId } }),
         Address.findOne({ where: { id: member.postalAddressId } })
       ])
@@ -240,7 +231,7 @@ function notifyMember(member) {
 function notifyExpiringMembers(membersToNotify) {
   const promises = membersToNotify.map(member => notifyMember(member))
 
-  return Q.all(promises)
+  return Promise.all(promises)
 }
 
 module.exports = {

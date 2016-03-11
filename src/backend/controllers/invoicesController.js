@@ -4,7 +4,7 @@ const invoiceService = require("../services/invoiceService"),
       paymentValidator = require("../../lib/paymentValidator"),
       ChargeCardError = require("../errors/ChargeCardError"),
       logger = require("../lib/logger"),
-      Q = require("q")
+      Promise = require("bluebird").Promise
 
 function sendResponseToUser(res) {
   return () => {
@@ -40,7 +40,7 @@ function updateInvoiceHandler(req, res) {
 
   if (validationErrors.length > 0) {
     res.status(400).json({ errors: validationErrors })
-    return Q.reject({ errors: validationErrors })
+    return Promise.reject({ errors: validationErrors })
   }
 
   return invoiceService.payForInvoice(newInvoice)
@@ -65,7 +65,6 @@ function acceptPayment(req, res) {
         { req, error }
       )
       res.status(500).json({ errors: "Payment could not be accepted" })
-      return Q.reject("Payment could not be accepted")
     })
 }
 

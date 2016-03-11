@@ -7,7 +7,7 @@ const memberService = require("../services/memberService"),
       stripeHandler = require("../lib/stripeHandler"),
       paypalHandler = require("../lib/paypalHandler"),
       logger = require("../lib/logger"),
-      Q = require("q")
+      Promise = require("bluebird").Promise
 
 function isPostalAddressEmpty(postal) {
   return postal.address === "" &&
@@ -98,7 +98,7 @@ function newMemberHandler(req, res) {
   const validationErrors = memberValidator.isValid(newMember)
 
   if (validationErrors.length > 0) {
-    return res.status(400).json({ errors: validationErrors })
+    return Promise.resolve(res.status(400).json({ errors: validationErrors }))
   }
 
   return memberService.createMember(newMember)
@@ -141,16 +141,18 @@ function verify(req, res) {
   if (!memberValidator.isValidVerificationHash(hash)) {
     logger.warning("verify-member", "Received invalid hash", { req, hash })
     res.sendStatus(400)
-    return Q.reject("Invalid Input")
+    return Promise.reject(new Error("Invalid Input"))
   }
 
-  return memberService.verify(hash)
-  .then(() => {
-    res.redirect("/verified")
-  })
-  .catch(() => {
-    res.sendStatus(400)
-  })
+  const resp = memberService.verify(hash)
+  console.log(resp)
+
+  resp.then(() => {
+      res.redirect("/verified")
+    })
+    .catch(() => {
+      res.sendStatus(400)
+    })
 }
 
 function renew(req, res) {
@@ -159,7 +161,7 @@ function renew(req, res) {
   if (!memberValidator.isValidVerificationHash(hash)) {
     logger.warning("renew-member", "Received invalid hash", { req, hash })
     res.sendStatus(400)
-    return Q.reject("Invalid Input")
+    return Promise.reject(new Error("Invalid Input"))
   }
 
   return memberService.findMemberByRenewalHash(hash)

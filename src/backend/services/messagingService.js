@@ -3,7 +3,7 @@
 const emailUtil = require("../lib/emailUtil"),
       config = require("config"),
       logger = require("../lib/logger"),
-      Q = require("q")
+      Promise = require("bluebird").Promise
 
 function emailLogger(type) {
   return (o) => {
@@ -67,7 +67,7 @@ const emails = {
 
 function sendEmail(member, type) {
   if (!config.get("email.sendEmails")) {
-    return Q.resolve(member)
+    return Promise.resolve(member)
   }
 
   const options = {

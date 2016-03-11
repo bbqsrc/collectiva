@@ -1,6 +1,6 @@
 "use strict"
 
-const Q = require("q"),
+const Promise = require("bluebird").Promise,
       Stripe = require("stripe").Stripe,
       logger = require("./logger")
 
@@ -47,14 +47,14 @@ function getStripeHeaders() {
 function chargeCard(stripeToken, totalAmount) {
   const stripe = Stripe(getSecretKey())
 
-  return Q(stripe.charges.create({
+  stripe.charges.create({
     // TODO: wtf?
     amount: parseFloat(totalAmount) * 100,
     currency: "aud",
     source: stripeToken.id,
     // TODO: wtf?
     description: "Pirate party membership."
-  }))
+  })
 }
 
 module.exports = {
