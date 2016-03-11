@@ -4,23 +4,7 @@ const invoiceService = require("../services/invoiceService"),
       paymentValidator = require("../../lib/paymentValidator"),
       ChargeCardError = require("../errors/ChargeCardError"),
       logger = require("../lib/logger"),
-      Promise = require("bluebird").Promise
-
-function sendResponseToUser(res) {
-  return () => {
-    res.status(200).json({})
-  }
-}
-
-function handleError(res) {
-  return (error) => {
-    if (error instanceof ChargeCardError) {
-      res.status(400).json({ errors: error.message })
-    } else {
-      res.status(500).json({ errors: "An error has occurred internally." })
-    }
-  }
-}
+      co = require("co")
 
 function updateInvoiceHandler(req, res) {
   const newInvoice = {
@@ -38,34 +22,47 @@ function updateInvoiceHandler(req, res) {
     validationErrors = paymentValidator.isValid(newInvoice)
   }
 
-  if (validationErrors.length > 0) {
-    res.status(400).json({ errors: validationErrors })
-    return Promise.reject({ errors: validationErrors })
-  }
+  return co(function* () {
+    if (validationErrors.length > 0) {
+      res.status(400).json({ errors: validationErrors })
+      return { errors: validationErrors }
+    }
 
-  return invoiceService.payForInvoice(newInvoice)
-        .then(sendResponseToUser(res))
-        .catch(handleError(res))
+    try {
+      yield invoiceService.payForInvoice(newInvoice)
+      res.status(200).json({})
+    } catch (error) {
+      if (error instanceof ChargeCardError) {
+        res.status(400).json({ errors: error.message })
+      } else {
+        res.status(500).json({ errors: "An error has occurred internally." })
+      }
+    }
+  })
 }
 
 function acceptPayment(req, res) {
   const reference = req.params.reference
 
-  return invoiceService.acceptPayment(reference)
-    .tap(() => {
+  return co(function* () {
+    try {
+      yield invoiceService.acceptPayment(reference)
+
       logger.info("invoice:payment-accepted",
         `Payment with reference '${reference}' processed`,
         { req }
       )
-    })
-    .then(sendResponseToUser(res))
-    .catch((error) => {
+
+      res.status(200).json({})
+    } catch (error) {
       logger.error("invoice:payment-failed",
         `Payment with reference '${reference}' failed`,
         { req, error }
       )
+
       res.status(500).json({ errors: "Payment could not be accepted" })
-    })
+    }
+  })
 }
 
 module.exports = {

@@ -67,7 +67,7 @@ describe("invoicesController", function() {
     })
 
     describe("when it receives a good request", function() {
-      it("responds with success", function*() {
+      it("responds with success", function* () {
         validatePaymentStub.returns([])
 
         yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
@@ -76,23 +76,18 @@ describe("invoicesController", function() {
     })
 
     describe("when validation fails", function() {
-      it("responds with status 400", function*() {
+      it("responds with status 400", function* () {
         validatePaymentStub.returns(["totalAmount"])
 
-        try {
-          yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
-          // TODO see if this is needed
-          expect("this should not be reached").to.be.false
-        } catch (error) {
-          expect(error).to.exist
-          expect(invoiceService.payForInvoice).not.to.have.been.called
-          expect(res.status).to.have.been.calledWith(400)
-        }
+        yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
+
+        expect(invoiceService.payForInvoice).not.to.have.been.called
+        expect(res.status).to.have.been.calledWith(400)
       })
     })
 
     describe("when pay for invoice fails", function() {
-      it("responds with a server error", function*() {
+      it("responds with a server error", function* () {
         const errorMessage = "Seriously, we still don't have any damn bananas."
 
         validatePaymentStub.returns([])
@@ -105,7 +100,7 @@ describe("invoicesController", function() {
         })
       })
 
-      it("responds with a bad request if charge card failed", function*() {
+      it("responds with a bad request if charge card failed", function* () {
         validatePaymentStub.returns([])
 
         const errorMessage = "Seriously, we still don't have any damn bananas."
