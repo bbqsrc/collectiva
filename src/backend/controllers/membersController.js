@@ -10,20 +10,20 @@ const memberService = require("../services/memberService"),
       Promise = require("bluebird").Promise,
       co = require("co")
 
+function filterAddress(obj) {
+  const { address, suburb, postcode, state, country } = obj
+
+  return { address, suburb, postcode, state, country }
+}
+
+function residentialAddress(req) {
+  return filterAddress(req.body.residentialAddress)
+}
+
 function isPostalAddressEmpty(postal) {
   return postal.address === "" &&
     postal.suburb === "" &&
     postal.postcode === ""
-}
-
-function residentialAddress(req) {
-  return {
-    address: req.body.residentialAddress.address,
-    suburb: req.body.residentialAddress.suburb,
-    postcode: req.body.residentialAddress.postcode,
-    state: req.body.residentialAddress.state,
-    country: req.body.residentialAddress.country
-  }
 }
 
 function postalAddress(req) {
@@ -31,27 +31,20 @@ function postalAddress(req) {
     return residentialAddress(req)
   }
 
-  return {
-    address: req.body.postalAddress.address,
-    suburb: req.body.postalAddress.suburb,
-    postcode: req.body.postalAddress.postcode,
-    state: req.body.postalAddress.state,
-    country: req.body.postalAddress.country
-  }
+  return filterAddress(req.body.postalAddress)
 }
 
 function setupNewMember(req) {
+  const {
+    firstName, lastName, email, gender, primaryPhoneNumber,
+    secondaryPhoneNumber, dateOfBirth, membershipType
+  } = req.body
+
   return {
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    email: req.body.email,
-    gender: req.body.gender,
-    primaryPhoneNumber: req.body.primaryPhoneNumber,
-    secondaryPhoneNumber: req.body.secondaryPhoneNumber,
-    dateOfBirth: req.body.dateOfBirth,
+    firstName, lastName, email, gender, primaryPhoneNumber,
+    secondaryPhoneNumber, dateOfBirth, membershipType,
     residentialAddress: residentialAddress(req),
-    postalAddress: postalAddress(req),
-    membershipType: req.body.membershipType
+    postalAddress: postalAddress(req)
   }
 }
 
