@@ -6,131 +6,78 @@ const Promise = require("bluebird").Promise,
       stripeHandler = require("../lib/stripeHandler"),
       ChargeCardError = require("../errors/ChargeCardError"),
       moment = require("moment"),
-      _ = require("lodash"),
       Invoice = models.Invoice,
-      Member = models.Member
-
-function findInvoice(invoiceId) {
-  return Invoice
-    .findOne({ where: { id: invoiceId } })
-    .then((result) => {
-      if (_.isEmpty(result)) {
-        throw new Error(`Invoice not found for Id: ${invoiceId}`)
-      }
-      return result.dataValues.id
-    })
-}
-
-function updateInvoice(updateFields) {
-  return invoiceId => {
-    return Invoice.update(updateFields, { where: { id: invoiceId } })
-  }
-}
-
-function updateInvoiceReference(membershipType) {
-  return data => {
-    const invoiceId = data.dataValues.id
-    const updateFields = {
-      reference: membershipType.substring(0, 3).toUpperCase() + invoiceId
-    }
-
-    return findInvoice(invoiceId)
-      .then(updateInvoice(updateFields))
-      .tap(() => {
-        logger.debug("update-invoice", "Invoice updated", {
-          id: invoiceId,
-          fields: updateFields
-        })
-      })
-      .then(() => {
-        return { id: invoiceId }
-      })
-  }
-}
-
-function handleError(error) {
-  throw new Error("An error has occurred internally.")
-}
+      Member = models.Member,
+      sequelize = models.sequelize,
+      co = require("co")
 
 function createEmptyInvoice(memberEmail, membershipType) {
   const member = { email: memberEmail, type: membershipType }
 
-  return Invoice.create({
-    memberEmail,
-    totalAmountInCents: 0,
-    paymentDate: moment().format("L"),
-    paymentType: "",
-    reference: ""
+  return co(function* () {
+    try {
+      const invoice = yield Invoice.create({
+        memberEmail,
+        totalAmountInCents: 0,
+        paymentDate: moment().format("L"),
+        paymentType: "",
+        reference: ""
+      })
+
+      // TODO: replace with a virtual...
+      invoice.reference = membershipType.substring(0, 3).toUpperCase() + invoice.id
+      yield invoice.save()
+
+      logger.debug("create-invoice", "Invoice created", { member, invoice })
+
+      return { id: invoice.id }
+    } catch (error) {
+      logger.error("create-invoice",
+        "An error occurred creating an invoice",
+        { member, error }
+      )
+    }
   })
-  .tap((invoice) => logger.debug("create-invoice", "Invoice created", { member, invoice }))
-  .then(updateInvoiceReference(membershipType))
-  .catch((error) => {
-    logger.error("create-invoice",
-      "An error occurred creating an invoice",
-      { member, error }
+}
+
+function* chargeCard(stripeToken, totalAmount) {
+  try {
+    yield stripeHandler.chargeCard(stripeToken, totalAmount)
+
+    logger.debug("payment-processor:stripe",
+      `Charged card with token: ${stripeToken}`,
+      { token: stripeToken, amount: totalAmount }
     )
-    handleError(error)
-  })
-}
-
-function chargeCard(stripeToken, totalAmount) {
-  const res = stripeHandler.chargeCard(stripeToken, totalAmount)
-
-  console.log(res)
-  return res.tap(() => {
-      logger.debug("payment-processor:stripe",
-        `Charged card with token: ${stripeToken}`,
-        { token: stripeToken, amount: totalAmount }
-      )
-    })
-    .catch((error) => {
-      logger.error("payment-processor:stripe",
-        `An error occurred while attempting to charge card with token: ${stripeToken}`,
-        { error, token: stripeToken, amount: totalAmount }
-      )
-      throw new ChargeCardError("Failed to charge card!")
-    })
-}
-
-function updatePaymentForInvoice(invoice) {
-  const updateFields = {
-    totalAmountInCents: invoice.totalAmount * 100,
-    paymentDate: moment().format("L"),
-    paymentType: invoice.paymentType,
-    paymentStatus: invoice.paymentStatus || "Pending"
-  }
-
-  if (invoice.paymentType === "stripe") {
-    updateFields.transactionId = invoice.transactionId
-  }
-
-  return findInvoice(invoice.invoiceId)
-        .then(updateInvoice(updateFields))
-        .tap(() => {
-          logger.debug("update-invoice", "Invoice updated", {
-            id: invoice.invoiceId,
-            fields: updateFields
-          })
-        })
-}
-
-function updateStripePaymentForInvoice(invoice) {
-  return (charge) => {
-    invoice.paymentStatus = "PAID"
-    invoice.transactionId = charge.id
-    return updatePaymentForInvoice(invoice)
+  } catch (error) {
+    logger.error("payment-processor:stripe",
+      `An error occurred while attempting to charge card with token: ${stripeToken}`,
+      { error, token: stripeToken, amount: totalAmount }
+    )
+    throw new ChargeCardError("Failed to charge card!")
   }
 }
 
+// TODO: make function properly generic for processors
+// TODO: also this whole function is a massive what the fuck
 function payForInvoice(invoice) {
-  if (invoice.paymentType === "stripe") {
-    return (
-      chargeCard(invoice.stripeToken, invoice.totalAmount)
-        .then(updateStripePaymentForInvoice(invoice))
-    )
-  } else {
-    return updatePaymentForInvoice(invoice)
-  }
+  return co(function* () {
+    Object.assign(invoice, {
+      totalAmountInCents: invoice.totalAmount * 100,
+      // TODO: wtf?
+      paymentDate: moment().format("L"),
+      paymentType: invoice.paymentType,
+      paymentStatus: invoice.paymentStatus || "Pending"
+    })
+
+    if (invoice.paymentType === "stripe") {
+      const charge = yield chargeCard(invoice.stripeToken, invoice.totalAmount)
+
+      invoice.paymentStatus = "PAID"
+      invoice.transactionId = charge.id
+    }
+
+    yield invoice.save()
+  })
 }
 
 function paypalChargeSuccess(customInvoiceId, paypalId) {
@@ -143,7 +90,7 @@ function paypalChargeSuccess(customInvoiceId, paypalId) {
     }
   }
 
-  return models.sequelize.transaction(t => {
+  return sequelize.transaction(t => {
     return Invoice.update({
       transactionId: paypalId,
       paymentStatus: "PAID"
@@ -157,20 +104,6 @@ function paypalChargeSuccess(customInvoiceId, paypalId) {
     })
     .then(checkResultOfUpdate)
   })
-}
-
-function transformMemberWithInvoice(invoice) {
-  const newInvoiceRoot = invoice.dataValues
-  const newMemberRoot = invoice.dataValues.member.dataValues
-
-  delete newInvoiceRoot.member
-  return Object.assign({}, newMemberRoot, newInvoiceRoot)
-}
-
-function transformMembersWithInvoice(adapter) {
-  return (memberQueryResult) => {
-    return memberQueryResult.map(adapter)
-  }
 }
 
 function unconfirmedPaymentList() {
@@ -190,14 +123,9 @@ function unconfirmedPaymentList() {
     }
   }
 
+  // TODO: this used to smear invoices and members into a sickening join
+  // The UI will have to be refactored to handle this
   return Invoice.findAll(query)
-    .then(transformMembersWithInvoice(transformMemberWithInvoice))
-    .catch((error) => {
-      const msg = "An error has occurred while fetching unconfirmed members"
-
-      logger.error("invoice-service", msg, { query, error })
-      return Promise.reject(new Error(msg))
-    })
 }
 
 function acceptPayment(reference) {
@@ -210,7 +138,7 @@ function acceptPayment(reference) {
     }
   }
 
-  return models.sequelize.transaction(t => {
+  return sequelize.transaction(t => {
     return Invoice.update({
       paymentStatus: "PAID"
     }, {

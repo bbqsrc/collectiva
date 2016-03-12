@@ -1,12 +1,14 @@
-"use strict"
+"use strict" /* eslint-disable camelcase */
 
 const invoiceService = require("../services/invoiceService"),
-      paypalIpn = require("paypal-ipn"),
-      logger = require("./logger")
+      Promise = require("bluebird").Promise,
+      paypalIpn = Promise.promisifyAll(require("paypal-ipn")),
+      logger = require("./logger"),
+      co = require("co")
 
 const env = process.env.NODE_ENV || "development"
 
-let config
+let config = {}
 
 try {
   config = require("../../../config/paypal-config.json")[env]
@@ -14,53 +16,33 @@ try {
   logger.alert("Could not find paypal config file")
 }
 
-function getServerUrl() {
-  if (config) {
-    return config.paypal_server_url
-  }
-}
-
-function getReturnUrl() {
-  if (config) {
-    return config.paypal_return_url
-  }
-}
-
-function getPaypalEmail() {
-  if (config) {
-    return config.paypal_email
-  }
-}
-
 function getPaypalHeaders() {
   return {
-    "Paypal-Server-Url": getServerUrl(),
-    "Paypal-Return-Url": getReturnUrl(),
-    "Paypal-Email": getPaypalEmail()
+    "Paypal-Server-Url": config.paypal_server_url,
+    "Paypal-Return-Url": config.paypal_return_url,
+    "Paypal-Email": config.paypal_email
   }
 }
 
 function handleIpn(req, res) {
-  if (!getServerUrl()) {
+  if (!config.paypal_server_url) {
     res.sendStatus(400)
     return
   }
 
-  const isSandbox = getServerUrl().indexOf(".sandbox.") !== -1
+  const isSandbox = config.paypal_server_url.indexOf(".sandbox.") !== -1
 
-  paypalIpn.verify(req.body, { allow_sandbox: isSandbox }, (err, mes) => { // eslint-disable-line
-    if (err) {
-      logger.crit("payment-processor:paypal", "Failed to verify IPN request", { req, error: err })
-      res.sendStatus(400)
-    } else if (req.body.payment_status === "Completed" && req.body.receiver_email === getPaypalEmail()) {
-      invoiceService.paypalChargeSuccess(req.body.custom, req.body.txn_id)
-      .then(() => {
+  return co(function* () {
+    try {
+      yield paypalIpn.verifyAsync(req.body, { allow_sandbox: isSandbox })
+      const { payment_status, receiver_email, custom, txn_id } = req.body
+
+      if (payment_status === "Completed" && receiver_email === config.paypal_email) {
+        yield invoiceService.paypalChargeSuccess(custom, txn_id)
         res.sendStatus(200)
-      }).catch(() => {
-        res.sendStatus(400)
-      })
-    } else {
-      logger.crit("payment-processor:paypal", "Received invalid IPN request", { req })
+      }
+    } catch (error) {
+      logger.crit("payment-processor:paypal", "Failed to verify IPN request", { req, error })
       res.sendStatus(400)
     }
   })
@@ -68,8 +50,5 @@ function handleIpn(req, res) {
 
 module.exports = {
   handleIpn,
-  getServerUrl,
-  getReturnUrl,
-  getPaypalEmail,
   getPaypalHeaders
 }

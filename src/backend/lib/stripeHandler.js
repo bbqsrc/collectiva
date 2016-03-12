@@ -1,4 +1,4 @@
-"use strict"
+"use strict" /* eslint-disable camelcase */
 
 const Promise = require("bluebird").Promise,
       Stripe = require("stripe").Stripe,
@@ -6,7 +6,7 @@ const Promise = require("bluebird").Promise,
 
 const env = process.env.NODE_ENV || "development"
 
-let config
+let config = {}
 
 try {
   config = require("../../../config/stripe-config.json")[env]
@@ -14,40 +14,16 @@ try {
   logger.alert("Could not find stripe config file")
 }
 
-module.exports.hasConfig = !!config
-
-function getSecretKey() {
-  const envSecretKey = process.env.STRIPE_SECRET_KEY
-
-  if (envSecretKey) {
-    return envSecretKey
-  }
-
-  if (config) {
-    return config.stripe_secret_key
-  }
-}
-
-function getPublicKey() {
-  const envPublicKey = process.env.STRIPE_PUBLIC_KEY
-
-  if (envPublicKey) {
-    return envPublicKey
-  }
-
-  if (config) {
-    return config.stripe_public_key
-  }
-}
+const stripe = new Stripe(config.stripe_secret_key)
 
 function getStripeHeaders() {
-  return { "Stripe-Public-Key": getPublicKey() }
+  return {
+    "Stripe-Public-Key": config.stripe_public_key
+  }
 }
 
 function chargeCard(stripeToken, totalAmount) {
-  const stripe = Stripe(getSecretKey())
-
-  stripe.charges.create({
+  return stripe.charges.create({
     // TODO: wtf?
     amount: parseFloat(totalAmount) * 100,
     currency: "aud",
@@ -58,8 +34,6 @@ function chargeCard(stripeToken, totalAmount) {
 }
 
 module.exports = {
-  getPublicKey,
-  getSecretKey,
   chargeCard,
   getStripeHeaders
 }

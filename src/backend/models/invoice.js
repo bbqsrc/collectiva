@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     memberEmail: DataTypes.STRING,
     totalAmountInCents: DataTypes.BIGINT,
-    paymentDate: DataTypes.DATEONLY,
+    paymentDate: DataTypes.DATE,
     paymentType: DataTypes.STRING,
     reference: DataTypes.STRING,
     paymentStatus: DataTypes.STRING,

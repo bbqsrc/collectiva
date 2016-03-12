@@ -7,7 +7,8 @@ const memberService = require("../services/memberService"),
       stripeHandler = require("../lib/stripeHandler"),
       paypalHandler = require("../lib/paypalHandler"),
       logger = require("../lib/logger"),
-      Promise = require("bluebird").Promise
+      Promise = require("bluebird").Promise,
+      co = require("co")
 
 function isPostalAddressEmpty(postal) {
   return postal.address === "" &&
@@ -54,85 +55,70 @@ function setupNewMember(req) {
   }
 }
 
-function sendVerificationEmailOffline(data) {
-  messagingService.sendVerificationEmail(data.member)
-  .catch((error) => {
-    logger.error("verify-member:send-email",
-      `An error occurred sending verification email for member ${data.member.id}`,
-      { error }
-    )
-  })
-}
-
-function createEmptyInvoice(createdMember) {
-  return invoiceService.createEmptyInvoice(createdMember.email, createdMember.membershipType)
-  .then((emptyInvoice) => {
-    return {
-      invoice: emptyInvoice,
-      member: createdMember
-    }
-  })
-}
-
-function sendResponseToUser(res) {
-  return data => {
-    const responseForUser = {
-      invoiceId: data.invoice.id,
-      newMember: {
-        email: data.member.email
-      }
-    }
-
-    res.status(200).json(responseForUser)
-  }
-}
-
-function handleError(res) {
-  return error => {
-    res.sendStatus(500)
-  }
-}
-
 function newMemberHandler(req, res) {
   const newMember = setupNewMember(req)
   const validationErrors = memberValidator.isValid(newMember)
 
-  if (validationErrors.length > 0) {
-    return Promise.resolve(res.status(400).json({ errors: validationErrors }))
-  }
+  return co(function* () {
+    if (validationErrors.length > 0) {
+      res.status(400).json({ errors: validationErrors })
+      return
+    }
 
-  return memberService.createMember(newMember)
-    .then(createEmptyInvoice)
-    .tap(sendResponseToUser(res))
-    .tap(sendVerificationEmailOffline)
-    .catch((error) => {
+    let member
+
+    try {
+      member = yield memberService.createMember(newMember)
+    } catch (error) {
       logger.crit("create-member",
         "An error occurred while creating member",
         { req, error }
       )
-      handleError(res)
+      return
+    }
+
+    const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
+
+    res.status(200).json({
+      invoiceId: invoice.id,
+      newMember: {
+        email: member.email
+      }
     })
+
+    try {
+      messagingService.sendVerificationEmail(member)
+    } catch (error) {
+      logger.error("verify-member:send-email",
+        `An error occurred sending verification email for member ${member.id}`,
+        { memberId: member.id, req, error }
+      )
+      return
+    }
+  })
 }
 
 function updateMemberHandler(req, res) {
   const newMember = setupNewMember(req)
   const validationErrors = memberValidator.isValid(newMember)
 
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ errors: validationErrors })
-  }
+  return co(function* () {
+    if (validationErrors.length > 0) {
+      res.status(400).json({ errors: validationErrors })
+      return
+    }
 
-  return memberService.updateMember(newMember)
-    .then((result) => {
-      res.status(200).json({ newMember: result })
-    })
-    .catch((error) => {
+    try {
+      const member = yield memberService.updateMember(newMember)
+
+      res.status(200).json({ newMember: member })
+    } catch (error) {
       logger.crit("update-member",
         "An error occurred while updating member",
         { req, error }
       )
-      handleError(res)
-    })
+    }
+  })
 }
 
 function verify(req, res) {
@@ -144,15 +130,14 @@ function verify(req, res) {
     return Promise.reject(new Error("Invalid Input"))
   }
 
-  const resp = memberService.verify(hash)
-  console.log(resp)
-
-  resp.then(() => {
+  return co(function* () {
+    try {
+      yield memberService.verify(hash)
       res.redirect("/verified")
-    })
-    .catch(() => {
+    } catch (error) {
       res.sendStatus(400)
-    })
+    }
+  })
 }
 
 function renew(req, res) {
@@ -164,27 +149,31 @@ function renew(req, res) {
     return Promise.reject(new Error("Invalid Input"))
   }
 
-  return memberService.findMemberByRenewalHash(hash)
-    .then((result) => {
-      const u = {
-        user: JSON.stringify(result)
-      }
-      const headers = Object.assign({}, u,
-        stripeHandler.getStripeHeaders(),
-        paypalHandler.getPaypalHeaders()
-      )
+  return co(function* () {
+    const member = yield memberService.findMemberByRenewalHash(hash)
+    const headers = Object.assign({ user: JSON.stringify(member) },
+      stripeHandler.getStripeHeaders(),
+      paypalHandler.getPaypalHeaders()
+    )
 
-      res.header(headers).render("renew")
-    })
+    res.header(headers).render("renew")
+  })
 }
 
 function renewMemberHandler(req, res) {
   const hash = req.body.renewalHash
 
-  return memberService.renewMember(hash)
-    .then(createEmptyInvoice)
-    .tap(sendResponseToUser(res))
-    .catch(handleError(res))
+  return co(function* () {
+    const member = yield memberService.renewMember(hash)
+    const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
+
+    res.status(200).json({
+      invoiceId: invoice.id,
+      newMember: {
+        email: member.email
+      }
+    })
+  })
 }
 
 module.exports = {

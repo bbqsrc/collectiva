@@ -13,6 +13,7 @@ function emailLogger(type) {
   }
 }
 
+// TODO: no. This should never have been hardcoded. Fuck.
 const emails = {
   welcome: {
     logger: emailLogger("welcome"),
