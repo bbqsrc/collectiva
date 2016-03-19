@@ -2,7 +2,6 @@
 
 const invoiceService = require("../../../../src/backend/services/invoiceService"),
       paymentValidator = require("../../../../src/lib/paymentValidator"),
-      ChargeCardError = require("../../../../src/backend/errors/ChargeCardError"),
       Promise = require("bluebird").Promise
 
 const invoicesController = require("../../../../src/backend/controllers/invoicesController")
@@ -104,9 +103,8 @@ describe("invoicesController", function() {
         validatePaymentStub.returns([])
 
         const errorMessage = "Seriously, we still don't have any damn bananas."
-        const error = new ChargeCardError(errorMessage)
 
-        payForInvoiceStub.returns(Promise.reject(new Error(error)))
+        payForInvoiceStub.returns(Promise.reject(new Error(errorMessage)))
 
         yield invoicesController.updateInvoiceHandler(generateGoodRequest(), res)
         expect(res.status).to.have.been.calledWith(400)

@@ -4,7 +4,6 @@ const Promise = require("bluebird").Promise,
       models = require("../models"),
       logger = require("../lib/logger"),
       stripeHandler = require("../lib/stripeHandler"),
-      ChargeCardError = require("../errors/ChargeCardError"),
       moment = require("moment"),
       Invoice = models.Invoice,
       Member = models.Member,
@@ -53,7 +52,7 @@ function* chargeCard(stripeToken, totalAmount) {
       `An error occurred while attempting to charge card with token: ${stripeToken}`,
       { error, token: stripeToken, amount: totalAmount }
     )
-    throw new ChargeCardError("Failed to charge card!")
+    throw new Error("Failed to charge card!")
   }
 }
 

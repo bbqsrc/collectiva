@@ -2,7 +2,6 @@
 
 const invoiceService = require("../services/invoiceService"),
       paymentValidator = require("../../lib/paymentValidator"),
-      ChargeCardError = require("../errors/ChargeCardError"),
       logger = require("../lib/logger")
 
 function* updateInvoiceHandler(next) {
@@ -31,7 +30,7 @@ function* updateInvoiceHandler(next) {
     yield invoiceService.payForInvoice(newInvoice)
     this.body = {}
   } catch (error) {
-    if (error instanceof ChargeCardError) {
+    if (error instanceof Error) {
       this.status = 400
       this.body = { errors: error.message }
     } else {

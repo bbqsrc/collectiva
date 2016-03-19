@@ -258,7 +258,6 @@ describe("invoiceService", function() {
             done(new Error("payForInvoice should have failed, not succeeded, not this time."))
           })
           .catch((error) => {
-            expect(error.name).to.equal("ChargeCardError")
             expect(error.message).to.equal("Failed to charge card!")
           }).finally(() => done())
       })
