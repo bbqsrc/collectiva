@@ -3,66 +3,65 @@
 const invoiceService = require("../services/invoiceService"),
       paymentValidator = require("../../lib/paymentValidator"),
       ChargeCardError = require("../errors/ChargeCardError"),
-      logger = require("../lib/logger"),
-      co = require("co")
+      logger = require("../lib/logger")
 
-function updateInvoiceHandler(req, res) {
+function* updateInvoiceHandler(next) {
   const newInvoice = {
-    totalAmount: req.body.paymentType === "noContribute" ? 0 : req.body.totalAmount,
-    paymentType: req.body.paymentType,
-    stripeToken: req.body.stripeToken,
-    invoiceId: req.body.invoiceId
+    totalAmount: this.request.body.fields.paymentType === "noContribute" ? 0 : this.request.body.fields.totalAmount,
+    paymentType: this.request.body.fields.paymentType,
+    stripeToken: this.request.body.fields.stripeToken,
+    invoiceId: this.request.body.fields.invoiceId
   }
 
   let validationErrors
 
-  if (req.body.paymentType === "noContribute") {
+  if (this.request.body.fields.paymentType === "noContribute") {
     validationErrors = paymentValidator.isValidNoContribute(newInvoice)
   } else {
     validationErrors = paymentValidator.isValid(newInvoice)
   }
 
-  return co(function* () {
-    if (validationErrors.length > 0) {
-      res.status(400).json({ errors: validationErrors })
-      return { errors: validationErrors }
-    }
+  if (validationErrors.length > 0) {
+    this.status = 400
+    this.body = { errors: validationErrors }
+    return
+  }
 
-    try {
-      yield invoiceService.payForInvoice(newInvoice)
-      res.status(200).json({})
-    } catch (error) {
-      if (error instanceof ChargeCardError) {
-        res.status(400).json({ errors: error.message })
-      } else {
-        res.status(500).json({ errors: "An error has occurred internally." })
-      }
+  try {
+    yield invoiceService.payForInvoice(newInvoice)
+    this.body = {}
+  } catch (error) {
+    if (error instanceof ChargeCardError) {
+      this.status = 400
+      this.body = { errors: error.message }
+    } else {
+      this.status = 500
+      this.body = { errors: "An error has occurred internally." }
     }
-  })
+  }
 }
 
-function acceptPayment(req, res) {
-  const reference = req.params.reference
+function* acceptPayment(next) {
+  const reference = this.params.reference
 
-  return co(function* () {
-    try {
-      yield invoiceService.acceptPayment(reference)
+  try {
+    yield invoiceService.acceptPayment(reference)
 
-      logger.info("invoice:payment-accepted",
-        `Payment with reference '${reference}' processed`,
-        { req }
-      )
+    logger.info("invoice:payment-accepted",
+      `Payment with reference '${reference}' processed`,
+      { request: this.request }
+    )
 
-      res.status(200).json({})
-    } catch (error) {
-      logger.error("invoice:payment-failed",
-        `Payment with reference '${reference}' failed`,
-        { req, error }
-      )
+    this.body = {}
+  } catch (error) {
+    logger.error("invoice:payment-failed",
+      `Payment with reference '${reference}' failed`,
+      { request: this.request, error }
+    )
 
-      res.status(500).json({ errors: "Payment could not be accepted" })
-    }
-  })
+    this.status = 500
+    this.body = { errors: "Payment could not be accepted" }
+  }
 }
 
 module.exports = {

@@ -6,9 +6,7 @@ const memberService = require("../services/memberService"),
       messagingService = require("../services/messagingService"),
       stripeHandler = require("../lib/stripeHandler"),
       paypalHandler = require("../lib/paypalHandler"),
-      logger = require("../lib/logger"),
-      Promise = require("bluebird").Promise,
-      co = require("co")
+      logger = require("../lib/logger")
 
 function filterAddress(obj) {
   const { address, suburb, postcode, state, country } = obj
@@ -17,7 +15,7 @@ function filterAddress(obj) {
 }
 
 function residentialAddress(req) {
-  return filterAddress(req.body.residentialAddress)
+  return filterAddress(req.body.fields.residentialAddress)
 }
 
 function isPostalAddressEmpty(postal) {
@@ -31,14 +29,14 @@ function postalAddress(req) {
     return residentialAddress(req)
   }
 
-  return filterAddress(req.body.postalAddress)
+  return filterAddress(req.body.fields.postalAddress)
 }
 
 function setupNewMember(req) {
   const {
     firstName, lastName, email, gender, primaryPhoneNumber,
     secondaryPhoneNumber, dateOfBirth, membershipType
-  } = req.body
+  } = this.request.body.fields
 
   return {
     firstName, lastName, email, gender, primaryPhoneNumber,
@@ -48,125 +46,120 @@ function setupNewMember(req) {
   }
 }
 
-function newMemberHandler(req, res) {
-  const newMember = setupNewMember(req)
+function* newMemberHandler(next) {
+  const newMember = setupNewMember(this.request)
   const validationErrors = memberValidator.isValid(newMember)
 
-  return co(function* () {
-    if (validationErrors.length > 0) {
-      res.status(400).json({ errors: validationErrors })
-      return
-    }
-
-    let member
-
-    try {
-      member = yield memberService.createMember(newMember)
-    } catch (error) {
-      logger.crit("create-member",
-        "An error occurred while creating member",
-        { req, error }
-      )
-      return
-    }
-
-    const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
-
-    res.status(200).json({
-      invoiceId: invoice.id,
-      newMember: {
-        email: member.email
-      }
-    })
-
-    try {
-      messagingService.sendVerificationEmail(member)
-    } catch (error) {
-      logger.error("verify-member:send-email",
-        `An error occurred sending verification email for member ${member.id}`,
-        { memberId: member.id, req, error }
-      )
-      return
-    }
-  })
-}
-
-function updateMemberHandler(req, res) {
-  const newMember = setupNewMember(req)
-  const validationErrors = memberValidator.isValid(newMember)
-
-  return co(function* () {
-    if (validationErrors.length > 0) {
-      res.status(400).json({ errors: validationErrors })
-      return
-    }
-
-    try {
-      const member = yield memberService.updateMember(newMember)
-
-      res.status(200).json({ newMember: member })
-    } catch (error) {
-      logger.crit("update-member",
-        "An error occurred while updating member",
-        { req, error }
-      )
-    }
-  })
-}
-
-function verify(req, res) {
-  const hash = req.params.hash
-
-  if (!memberValidator.isValidVerificationHash(hash)) {
-    logger.warning("verify-member", "Received invalid hash", { req, hash })
-    res.sendStatus(400)
-    return Promise.reject(new Error("Invalid Input"))
+  if (validationErrors.length > 0) {
+    this.status = 400
+    this.body = { errors: validationErrors }
+    return
   }
 
-  return co(function* () {
-    try {
-      yield memberService.verify(hash)
-      res.redirect("/verified")
-    } catch (error) {
-      res.sendStatus(400)
-    }
-  })
-}
+  let member
 
-function renew(req, res) {
-  const hash = req.params.hash
-
-  if (!memberValidator.isValidVerificationHash(hash)) {
-    logger.warning("renew-member", "Received invalid hash", { req, hash })
-    res.sendStatus(400)
-    return Promise.reject(new Error("Invalid Input"))
-  }
-
-  return co(function* () {
-    const member = yield memberService.findMemberByRenewalHash(hash)
-    const headers = Object.assign({ user: JSON.stringify(member) },
-      stripeHandler.getStripeHeaders(),
-      paypalHandler.getPaypalHeaders()
+  try {
+    member = yield memberService.createMember(newMember)
+  } catch (error) {
+    logger.crit("create-member",
+      "An error occurred while creating member",
+      { request: this.request, error }
     )
+    return
+  }
 
-    res.header(headers).render("renew")
-  })
+  const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
+
+  this.body = {
+    invoiceId: invoice.id,
+    newMember: {
+      email: member.email
+    }
+  }
+
+  try {
+    messagingService.sendVerificationEmail(member)
+  } catch (error) {
+    logger.error("verify-member:send-email",
+      `An error occurred sending verification email for member ${member.id}`,
+      { memberId: member.id, request: this.request, error }
+    )
+    return
+  }
 }
 
-function renewMemberHandler(req, res) {
-  const hash = req.body.renewalHash
+function* updateMemberHandler(next) {
+  const newMember = setupNewMember(this.request)
+  const validationErrors = memberValidator.isValid(newMember)
 
-  return co(function* () {
-    const member = yield memberService.renewMember(hash)
-    const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
+  if (validationErrors.length > 0) {
+    this.status = 400
+    this.body = { errors: validationErrors }
+    return
+  }
 
-    res.status(200).json({
-      invoiceId: invoice.id,
-      newMember: {
-        email: member.email
-      }
-    })
-  })
+  try {
+    const member = yield memberService.updateMember(newMember)
+
+    this.body = { newMember: member }
+  } catch (error) {
+    logger.crit("update-member",
+      "An error occurred while updating member",
+      { request: this.request, error }
+    )
+  }
+}
+
+function* verify(next) {
+  const hash = this.params.hash
+
+  if (!memberValidator.isValidVerificationHash(hash)) {
+    logger.warning("verify-member", "Received invalid hash", { request: this.request, hash })
+    this.status = 400
+    return
+  }
+
+  try {
+    yield memberService.verify(hash)
+    this.redirect("/verified")
+  } catch (error) {
+    this.status = 400
+    return
+  }
+}
+
+function* renew(next) {
+  const hash = this.params.hash
+
+  if (!memberValidator.isValidVerificationHash(hash)) {
+    logger.warning("renew-member", "Received invalid hash", { request: this.request, hash })
+    this.status = 400
+    return
+  }
+
+  const member = yield memberService.findMemberByRenewalHash(hash)
+  const headers = Object.assign(
+    { user: JSON.stringify(member) },
+    stripeHandler.getStripeHeaders(),
+    paypalHandler.getPaypalHeaders()
+  )
+
+  this.set(headers)
+  this.body = yield this.render("renew")
+}
+
+function* renewMemberHandler(next) {
+  const hash = this.request.body.fields.renewalHash
+
+  const member = yield memberService.renewMember(hash)
+  const invoice = yield invoiceService.createEmptyInvoice(member.email, member.membershipType)
+
+  this.body = {
+    invoiceId: invoice.id,
+    newMember: {
+      email: member.email
+    }
+  }
 }
 
 module.exports = {

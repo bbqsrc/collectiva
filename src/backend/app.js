@@ -1,95 +1,69 @@
 "use strict"
 
-const express = require("express"),
-      path = require("path"),
-      favicon = require("serve-favicon"),
-      logger = require("morgan"),
-      bodyParser = require("body-parser"),
-      expressSanitized = require("express-sanitized"),
-      helmet = require("helmet"),
-      routes = require("./routes/index"),
-      sassMiddleware = require("node-sass-middleware"),
-      session = require("express-session"),
-      passport = require("passport"),
-      passportConfig = require("../../config/passport"),
-      neat = require("node-neat"),
-      app = express(),
-      configManager = require("../../config/configManager"),
-      SequelizeSessionStore = require("connect-session-sequelize")(session.Store),
-      db = require("./db/connection"),
-      sessionStore = new SequelizeSessionStore({ db }),
-      sessionOpts = configManager.session,
-      env = process.env.NODE_ENV || "development",
-      membershipRenewalJob = require("./services/membershipRenewalService")
+const { Promise } = require("bluebird")
+const fs = Promise.promisifyAll(require("fs"))
+const path = require("path")
 
-sessionStore.sync()
+const env = process.env.NODE_ENV || "development" // eslint-disable-line
+// const config = require("proxenv")(path.join(__dirname, "config"))
+const logger = require("./lib/logger")
+const koa = require("koa")
+const passport = require("koa-passport")
+const Iso = require("iso")
 
-app.set("views", path.join(__dirname, "../frontend/views"))
-app.engine("html", require("ejs").renderFile)
-app.set("view engine", "html")
+const app = koa()
+// const membershipRenewalService = require("./services/membershipRenewalService")
 
-app.use(favicon(path.join(__dirname, "../../public", "images", "favicon.ico")))
-app.use(helmet())
-app.use(logger(configManager.logFormat))
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(expressSanitized())
-app.use(session({
-  secret: sessionOpts.secret,
-  store: sessionStore,
-  proxy: sessionOpts.proxy,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: sessionOpts.secureCookie }
-}))
+app.use(function* errorCatcher(next) {
+  try {
+    yield next
+  } catch (error) {
+    const msg = "Internal server error. Please contact an administrator."
+
+    this.status = error.status || 500
+    if (env === "development") {
+      this.body = `<pre>${error.stack}</pre>`
+    } else {
+      this.body = msg
+    }
+
+    this.app.emit("error", error, this)
+    logger.error("app", "Internal server error", { request: this.request, error })
+  }
+})
+
+// Add iso, fuck yeah
+const isoPath = "../views"
+
+app.use(function* isoMiddleware(next) {
+  this.isoRender = function* isoRender(name, data) {
+    // TODO caching
+    const tmpl = yield fs.readFileAsync(path.join(isoPath, name), { encoding: "utf8" })
+    const iso = new Iso()
+
+    iso.add(tmpl, data)
+    this.body = iso.render()
+  }.bind(this)
+
+  yield next
+})
+
+// body parser. Stupid that it's not there by default.
+app.use(require("koa-better-body")())
+
+// Save us from malwankers
+app.use(require("koa-helmet")())
+
+// Simple sessions, extend to redis later.
+app.keys = ["TODO: don't hardcode this"]
+app.use(require("koa-session")(app))
+
+// Passport, it's like useful or some shit?
 app.use(passport.initialize())
 app.use(passport.session())
-app.use(sassMiddleware({
-  src: path.join(__dirname, "../../public"),
-  dest: path.join(__dirname, "../../public"),
-  debug: true,
-  outputStyle: "compressed",
-  includePaths: neat.includePaths
-}), express.static(path.join(__dirname, "../../public")))
 
-app.use("/", routes)
-
-// catch 404 and forward to error handler
-app.use((req, res, next) => {
-  const err = new Error("Not Found")
-
-  err.status = 404
-  next(err)
-})
-
-// error handlers
-
-// development error handler
-// will print stacktrace
-if (app.get("env") === "development") {
-  app.use((err, req, res, next) => {
-    res.status(err.status || 500)
-    res.render("error", {
-      message: err.message,
-      error: err
-    })
-  })
-}
-
-// production error handler
-// no stacktraces leaked to user
-app.use((err, req, res, next) => {
-  require("./lib/logger").error("express",
-    "An unhandled 500 error occurred",
-    { req, error: err }
-  )
-  res.status(err.status || 500)
-  res.render("error", {
-    message: err.message,
-    error: {}
-  })
-})
-
-membershipRenewalJob.start()
+app.use(require("./routes").middleware())
+// Renewal reminders, we love money.
+// membershipRenewalService.start()
 
 module.exports = app

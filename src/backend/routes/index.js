@@ -1,7 +1,6 @@
 "use strict"
 
-const express = require("express"),
-      router = express.Router(),
+const Router = require("koa-rutt"),
       passport = require("passport"),
       membersController = require("../controllers/membersController"),
       adminController = require("../controllers/adminController"),
@@ -10,14 +9,20 @@ const express = require("express"),
       paypalHandler = require("../lib/paypalHandler"),
       logger = require("../lib/logger")
 
-function requireAuth(req, res, next) {
-  if (!req.isAuthenticated()) {
-    logger.warning("routing", `Attempted unauthorised access to: ${req.url}`, { req })
+const router = new Router()
+
+function* requireAuth(next) {
+  if (!this.req.isAuthenticated()) {
+    logger.warning("routing",
+      `Attempted unauthorised access to: ${this.url}`,
+      { request: this.request }
+    )
     req.session.messages = "You need to login to view this page"
-    res.redirect("/login")
+    this.redirect("/login")
     return
   }
-  next()
+
+  yield next
 }
 
 router.get("/", (req, res) => {
@@ -30,14 +35,15 @@ router.get("/members/new", (req, res) => {
   res.render("members/new", { title: "New Member" })
 })
 
-router.post("/members", membersController.newMemberHandler)
+router.route("/members")
+  .post(membersController.newMemberHandler)
+  .get(requireAuth, adminController.membersList)
 
+router.post("/members/update", membersController.updateMemberHandler)
 
 router.get("/members/verify/:hash", membersController.verify)
 router.get("/members/renew/:hash", membersController.renew)
-router.get("/members", requireAuth, adminController.membersList)
 
-router.post("/members/update", membersController.updateMemberHandler)
 router.get("/verified", (req, res) => {
   res.render("account-verified", { title: "Pirate Party Membership" })
 })
@@ -49,12 +55,11 @@ router.post("/invoices/update", invoicesController.updateInvoiceHandler)
 router.post("/invoices/unaccepted/:reference", requireAuth, invoicesController.acceptPayment)
 router.get("/invoices/unaccepted", requireAuth, adminController.unconfirmedPaymentsMembersList)
 
-router.post("/login",
-    passport.authenticate("local"), (req, res) => {
-      req.session.save(() => {
-        res.redirect("/admin")
-      })
-    })
+router.post("/login", passport.authenticate("local"), (req, res) => {
+  req.session.save(() => {
+    res.redirect("/admin")
+  })
+})
 
 router.get("/login", (req, res) => {
   res.render("login", { title: "Login" })
