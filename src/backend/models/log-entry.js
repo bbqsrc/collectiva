@@ -15,14 +15,10 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false,
     classMethods: {
       associate: function(models) {
-        LogEntry.belongsTo(models.AdminUser, { as: "user", foreignKey: "userId" })
+        //LogEntry.belongsTo(models.User, { as: "user", foreignKey: "userId" })
       }
     }
   })
-
-  LogEntry.associate(sequelize.models)
-
-  LogEntry.sync({force: true})
 
   return LogEntry
 }

@@ -14,10 +14,10 @@ const memberFieldsChecks = {
 }
 
 const addressFieldChecks = {
-  address: isValidLength,
-  suburb: isValidLength,
+  address: isValidString,
+  suburb: isValidString,
   postcode: isValidPostcode,
-  state: isValidLength,
+  state: isValidString,
   country: isValidCountry
 }
 
@@ -31,8 +31,7 @@ function containsSpecialCharacters(theString) {
 
 function isValidString(theString) {
   return !!theString &&
-        !containsSpecialCharacters(theString) &&
-        theString.length < 256
+        !containsSpecialCharacters(theString)
 }
 
 function isValidName(name) {
@@ -87,8 +86,12 @@ function setUpPostCodeChecks(addressObj) {
 function isValidAddress(addressObj) {
   setUpPostCodeChecks(addressObj)
 
+  console.log(addressObj)
+
   const addressErrors = _.reduce(addressFieldChecks, (errors, checkFn, memberFieldKey) => {
+    console.log(errors, checkFn, memberFieldKey)
     if (!addressObj || !checkFn(addressObj[memberFieldKey])) {
+      console.log('error')
       errors.push(memberFieldKey)
     }
     return errors
@@ -123,13 +126,13 @@ function isValidLength(object, minLength, maxLength) {
   const max = Math.min(maxLength, 255)
   const min = Math.max(minLength, 1)
 
-  return object &&
+  return (object &&
     object.length <= max &&
-    object.length >= min
+    object.length >= min)
 }
 
 function isValidCountry(country) {
-  return isValidLength(country) && country !== "Select Country"
+  return country !== "" && country !== "Select Country"
 }
 
 function isValidDetails(member) {

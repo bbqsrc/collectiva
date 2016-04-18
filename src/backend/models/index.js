@@ -7,16 +7,12 @@ const fs = require("fs"),
 
 const db = {}
 
-const env = process.env.NODE_ENV || "development"
-const config = require("../../../config/config.json")[env]
-
-let connection
-
-if (config.use_env_variable) {
-  connection = new Sequelize(process.env[config.use_env_variable])
-} else {
-  connection = new Sequelize(config.database, config.username, config.password, config)
-}
+const config = require("../../../config").database
+const connection = new Sequelize(config.database, config.username, config.password, {
+  dialect: "postgresql",
+  host: config.host,
+  port: config.port
+})
 
 fs
   .readdirSync(__dirname)
@@ -34,6 +30,8 @@ Object.keys(db).forEach(modelName => {
     db[modelName].associate(db)
   }
 })
+
+connection.sync()
 
 db.sequelize = connection
 db.Sequelize = Sequelize

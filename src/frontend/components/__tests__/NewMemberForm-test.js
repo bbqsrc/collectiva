@@ -8,14 +8,14 @@ import $ from 'jquery';
 
 describe('NewMemberForm', () => {
     it('should exist', () => {
-        spyOn(windowLocationUtil, 'getQueryParameters').and.returnValue('d');
+        spyOn(location, 'search').and.returnValue('d');
         let newMemberForm = TestUtils.renderIntoDocument(<NewMemberForm />);
 
         expect(TestUtils.isCompositeComponent(newMemberForm)).toBeTruthy();
     });
 
     it('initially shows the membership type step', () => {
-        spyOn(windowLocationUtil, 'getQueryParameters').and.returnValue('s');
+        spyOn(location, 'search').and.returnValue('s');
         let newMemberForm = TestUtils.renderIntoDocument(<NewMemberForm />);
 
         var heading = TestUtils.findRenderedDOMComponentWithTag(newMemberForm, 'h1');
@@ -23,7 +23,7 @@ describe('NewMemberForm', () => {
     });
 
     it('initially shows the finish page if paypalFinish step is true', () => {
-        spyOn(windowLocationUtil, 'getQueryParameters').and.returnValue('?tx=1234');
+        spyOn(location, 'search').and.returnValue('?tx=1234');
         let newMemberForm = TestUtils.renderIntoDocument(<NewMemberForm />);
 
 

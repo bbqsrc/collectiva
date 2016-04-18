@@ -1,6 +1,7 @@
 "use strict"
 
 const { endpoints } = require("koa-rutt")
+const passport = require("koa-passport")
 
 class AuthenticationRoutes {
   [endpoints]() {
@@ -16,15 +17,18 @@ class AuthenticationRoutes {
   }
 
   * renderLogin(ctx) {
-
+    ctx.body = yield ctx.render("login")
   }
 
-  * login(ctx) {
-
+  * login(ctx, next) {
+    passport.authenticate("local", {
+      successRedirect: "/admin"
+    })
   }
 
   * logout(ctx) {
-
+    ctx.logout()
+    ctx.redirect("/login")
   }
 }
 
