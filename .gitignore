@@ -3,14 +3,23 @@ logs
 pids
 *.pid
 *.seed
+
 node_modules
 npm-debug.log
+
 .vagrant
 .DS_Store
 .idea/
+
 public/javascript
 .babel-cache
 config/stripe-config.json
 public/stylesheets/style.css
 db/dumps
 screenshots
+config/config.json
+config/development.json
+
+# vscode typescript stuff
+/jsconfig.json
+typings/*

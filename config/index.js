@@ -7,6 +7,7 @@ let overlay
 
 try {
   overlay = require(`./${env}.json`)
+  console.info(`Config provided for env "${env}"!`)
 } catch (e) {
   console.error(`No config provided for env "${env}"; using defaults!`)
   overlay = {}
