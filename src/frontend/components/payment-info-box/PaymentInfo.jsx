@@ -1,38 +1,39 @@
-import React, {Component} from 'react';
-import ReactDOM from 'react-dom';
-import PaypalInfoBox from './PaypalInfoBox.jsx';
-import StripeInfoBox from './StripeInfoBox.jsx';
-import DirectDebitInfoBox from './DirectDebitInfoBox.jsx';
-import ChequeInfoBox from './ChequeInfoBox.jsx';
+import React, { Component } from "react"
+import ReactDOM from "react-dom"
+import PaypalInfoBox from "./PaypalInfoBox.jsx"
+import BraintreeInfoBox from "./BraintreeInfoBox.jsx"
+import StripeInfoBox from "./StripeInfoBox.jsx"
+import DirectDebitInfoBox from "./DirectDebitInfoBox.jsx"
+import ChequeInfoBox from "./ChequeInfoBox.jsx"
+
 export default class PaymentInfo extends Component {
-    constructor(props) {
-        super(props);
-        this.render = this.render.bind(this);
-        // this.componentDidUpdate = this.componentDidUpdate.bind(this);
+  constructor(props) {
+    super(props)
+    this.render = this.render.bind(this)
+  }
+
+  render() {
+    if (this.props.paymentType === "paypal") {
+      return <PaypalInfoBox
+        didUpdate={this.props.paymentInfoReceived}/>
+    }
+    if (this.props.paymentType === "braintree") {
+      return <BraintreeInfoBox
+        didUpdate={this.props.paymentInfoReceived}/>
+    }
+    if (this.props.paymentType === "creditOrDebitCard") {
+      return <StripeInfoBox
+        didUpdate={this.props.paymentInfoReceived}/>
+    }
+    if (this.props.paymentType === "deposit") {
+      return <DirectDebitInfoBox
+        didUpdate={this.props.paymentInfoReceived}/>
+    }
+    if (this.props.paymentType === "cheque") {
+      return <ChequeInfoBox
+        didUpdate={this.props.paymentInfoReceived}/>
     }
 
-    // componentDidUpdate(toTopOfElement) {
-    //     ReactDOM.findDOMNode(this).scrollIntoView(toTopOfElement);
-    // }
-
-    render() {
-      if(this.props.paymentType === 'paypal') {
-          return <PaypalInfoBox
-                  didUpdate={this.componentDidUpdate}/>;
-      }
-      if(this.props.paymentType === 'creditOrDebitCard') {
-          return <StripeInfoBox
-                  didUpdate={this.componentDidUpdate}/>;
-      }
-      if(this.props.paymentType === 'deposit') {
-          return <DirectDebitInfoBox
-                  didUpdate={this.componentDidUpdate}/>;
-      }
-      if(this.props.paymentType === 'cheque') {
-          return <ChequeInfoBox
-                  didUpdate={this.componentDidUpdate}/>;
-      }
-
-      return null;
-    }
+    return null
+  }
 }
