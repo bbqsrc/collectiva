@@ -1,7 +1,10 @@
 "use strict"
 
+const Promise = require("bluebird").Promise
 const uuid = require("node-uuid")
 const moment = require("moment")
+
+const logger = require("../lib/logger")
 
 const EXCLUDED_TYPES = ["resigned", "suspended", "expelled"]
 
@@ -48,6 +51,61 @@ module.exports = (sequelize, DataTypes) => {
         })
       },
 
+      createFromFormData(data) {
+        const Address = sequelize.models.Address
+
+        function createHash() {
+          return uuid.v4()
+        }
+
+        function save(member) {
+          return Member.create.bind(Member)(member)
+        }
+
+        function setupMember(newMember) {
+          return (residentialAddress, postalAddress) => {
+            return {
+              id: createHash(),
+              email: newMember.email,
+              givenNames: newMember.firstName,
+              dateOfBirth: moment(newMember.dateOfBirth, "DD/MM/YYYY").toDate(),
+              surname: newMember.lastName,
+              gender: newMember.gender,
+              primaryPhoneNumber: newMember.primaryPhoneNumber,
+              secondaryPhoneNumber: newMember.secondaryPhoneNumber,
+              type: "new", // TODO figure out what actually valid values are here
+              membershipType: newMember.membershipType,
+              verified: null,
+              verificationHash: createHash(),
+              memberSince: moment().format("L"),
+              expiresOn: moment().add(1, "year").format("L"), // FIXME should be config
+              lastRenewalReminder: moment().format("L"), // FIXME should initially by NULL
+              renewalHash: null,
+              residentialAddressId: residentialAddress[0].dataValues.id,
+              postalAddressId: postalAddress[0].dataValues.id
+            }
+          }
+        }
+
+        function getMemberAddresses(newMember) {
+          return [
+            Address.findOrCreate({ where: newMember.residentialAddress, defaults: newMember.residentialAddress }),
+            Address.findOrCreate({ where: newMember.postalAddress, defaults: newMember.postalAddress })
+          ]
+        }
+
+        return Promise.all(getMemberAddresses(data))
+          .spread(setupMember(data))
+          .then(save)
+          .then((savedMember) => {
+            return savedMember.dataValues
+          })
+          .catch((error) => {
+            console.error("create-member", "Failed to create member", { error: error.errors, member: data })
+            return Promise.reject(new Error("Failed to create member"))
+          })
+      },
+
       shouldSendRenewalReminder() {
         if (this.lastRenewalReminder == null) {
           return true
@@ -56,6 +114,11 @@ module.exports = (sequelize, DataTypes) => {
         const fortnight = +moment(this.lastRenewalReminder).add(14, "days").toDate()
 
         return fortnight < Date.now()
+      }
+    },
+    instanceMethods: {
+      sendVerificationEmail() {
+        // FIXME
       }
     }
   })

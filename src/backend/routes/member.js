@@ -2,6 +2,7 @@
 
 const { endpoints } = require("koa-rutt")
 const { Member } = require("../models")
+const logger = require("../lib/logger")
 
 function json(fn) {
   return function* checkHeaders(ctx, next) {
@@ -53,13 +54,22 @@ class MemberRoutes {
 
   * new(ctx) {
     // Validate the input
+    const data = ctx.request.fields.details
+
+    logger.info("member-new", data)
 
     // Create member
-    const member = yield new Member(data)
+    const member = yield Member.createFromFormData(data)
 
-    yield member.sendVerificationEmail()
+    // TODO
+    // yield member.sendVerificationEmail()
 
     ctx.status = 200
+    ctx.body = {
+      id: member.id,
+      type: member.type,
+      verified: member.verified
+    }
   }
 
   * renew(ctx) {
