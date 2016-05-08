@@ -1,7 +1,8 @@
 "use strict"
 
-const logger = require("./logger")
-const { Payments } = require("./payments")
+const logger = require("../../lib/logger")
+const { Payments } = require("./index")
+const { Invoice } = require("../../models")
 
 class DirectDepositPayments extends Payments {
   constructor(router) {
@@ -15,11 +16,15 @@ class DirectDepositPayments extends Payments {
   }
 
   * processPayment(ctx) {
-    // TODO: generate unique reference
-
-    // TODO: generate invoice
+    const data = ctx.request.fields
+    const invoice = yield Invoice.createFromFormData(this.name, data)
 
     // TODO: email invoice
+
+    ctx.status = 200
+    ctx.body = {
+      transactionId: invoice.transactionId
+    }
   }
 }
 

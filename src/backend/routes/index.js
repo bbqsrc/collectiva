@@ -9,15 +9,20 @@ const { MemberRoutes } = require("./member")
 const { AdminRoutes } = require("./admin")
 const { AuthenticationRoutes } = require("./auth")
 
+const { BraintreePayments } = require("../providers/payments/braintree")
+const { DirectDepositPayments } = require("../providers/payments/direct-deposit")
+const { ChequePayments } = require("../providers/payments/Cheque")
+
 const router = new Router()
 
 // Payment gateways
-//router
-//.use(BraintreePayments)
-//.use(StripePayments)
+router
+.use(BraintreePayments)
+.use(DirectDepositPayments)
+.use(ChequePayments)
+// .use(StripePayments)
 
 // Complex routes
-router
 .use(MemberRoutes)
 .use(AdminRoutes)
 .use(AuthenticationRoutes)
