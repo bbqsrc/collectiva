@@ -17,7 +17,7 @@ const app = koa()
 const send = require("koa-send")
 // const membershipRenewalService = require("./services/membershipRenewalService")
 
-process.on('unhandledRejection', err => {
+process.on("unhandledRejection", err => {
   console.error(err)
 })
 
@@ -63,13 +63,13 @@ require("koa-ejs")(app, {
   layout: false
 })
 
-/*
 // body parser. Stupid that it's not there by default.
 app.use(require("koa-better-body")())
 
 // Save us from malwankers
 app.use(require("koa-helmet")())
 
+/*
 // Simple sessions, extend to redis later.
 app.keys = ["TODO: don't hardcode this"]
 app.use(require("koa-session")(app))
@@ -81,7 +81,7 @@ app.use(require("koa-session")(app))
 app.use(require("./routes").middleware())
 
 app.use(function* () {
-  yield send(this, this.path, { root: path.resolve(__dirname + '/../../public') })
+  yield send(this, this.path, { root: path.resolve(__dirname + "/../../public") })
 })
 // Renewal reminders, we love money.
 // membershipRenewalService.start()

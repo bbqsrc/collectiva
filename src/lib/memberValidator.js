@@ -3,24 +3,6 @@ const validator = require("validator")
 const moment = require("moment")
 const _ = require("lodash")
 
-const memberFieldsChecks = {
-  firstName: isValidName,
-  lastName: isValidName,
-  gender: isValidGender,
-  email: isValidEmail,
-  primaryPhoneNumber: isValidPhone,
-  secondaryPhoneNumber: isValidOptionalPhone,
-  dateOfBirth: isValidDate
-}
-
-const addressFieldChecks = {
-  address: isValidString,
-  suburb: isValidString,
-  postcode: isValidPostcode,
-  state: isValidString,
-  country: isValidCountry
-}
-
 function isValidVerificationHash(theHash) {
   return validator.isUUID(theHash, "4")
 }
@@ -73,6 +55,37 @@ function isValidInternationalPostcode(postcode) {
   return !!postcode && postcode.toString().length <= 16
 }
 
+function isValidLength(object, minLength, maxLength) {
+  const max = Math.min(maxLength, 255)
+  const min = Math.max(minLength, 1)
+
+  return (object &&
+    object.length <= max &&
+    object.length >= min)
+}
+
+function isValidCountry(country) {
+  return country !== "" && country !== "Select Country"
+}
+
+const memberFieldsChecks = {
+  firstName: isValidName,
+  lastName: isValidName,
+  gender: isValidGender,
+  email: isValidEmail,
+  primaryPhoneNumber: isValidPhone,
+  secondaryPhoneNumber: isValidOptionalPhone,
+  dateOfBirth: isValidDate
+}
+
+const addressFieldChecks = {
+  address: isValidString,
+  suburb: isValidString,
+  postcode: isValidPostcode,
+  state: isValidString,
+  country: isValidCountry
+}
+
 function setUpPostCodeChecks(addressObj) {
   // XXX: WHY DOES THIS HAVE SIDE EFFECTS?!!!
   // TODO: refactor to make a copy, not share a global state.
@@ -86,12 +99,12 @@ function setUpPostCodeChecks(addressObj) {
 function isValidAddress(addressObj) {
   setUpPostCodeChecks(addressObj)
 
-  console.log(addressObj)
+//   console.log(addressObj)
 
   const addressErrors = _.reduce(addressFieldChecks, (errors, checkFn, memberFieldKey) => {
-    console.log(errors, checkFn, memberFieldKey)
+    // console.log(errors, checkFn, memberFieldKey)
     if (!addressObj || !checkFn(addressObj[memberFieldKey])) {
-      console.log('error')
+    //   console.log('error')
       errors.push(memberFieldKey)
     }
     return errors
@@ -120,19 +133,6 @@ function isValidPostalAddress(addressObj) {
     })
   }
   return []
-}
-
-function isValidLength(object, minLength, maxLength) {
-  const max = Math.min(maxLength, 255)
-  const min = Math.max(minLength, 1)
-
-  return (object &&
-    object.length <= max &&
-    object.length >= min)
-}
-
-function isValidCountry(country) {
-  return country !== "" && country !== "Select Country"
 }
 
 function isValidDetails(member) {

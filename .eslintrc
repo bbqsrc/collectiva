@@ -1,6 +1,6 @@
 {
   "extends": [
-    "eslint:recommended",
+    "eslint:recommended"
   ],
   "parser": "babel-eslint",
   "parserOptions": {
@@ -8,7 +8,8 @@
   },
   "env": {
     "es6": true,
-    "node": true
+    "node": true,
+    "browser": true
   },
   "rules": {
     "no-extra-parens": [2, "functions"],

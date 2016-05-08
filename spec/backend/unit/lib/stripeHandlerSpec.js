@@ -33,7 +33,7 @@ describe("stripeHandler", function() {
       stripe.Stripe.restore()
     })
 
-    it("Charge Credit Card", function*() {
+    it("Charge Credit Card", function* () {
       yield stripeHandler.chargeCard(stripeToken, totalAmount)
       expect(createStub.calledWith(expectedNewCharge)).to.be.true
     })

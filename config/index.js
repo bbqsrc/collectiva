@@ -1,12 +1,11 @@
 "use strict"
 
-const extend = require("extend")
 const env = process.env.NODE_ENV || "development"
 
 let overlay
 
 try {
-  overlay = require(`./${env}.json`)
+  overlay = require(`./${env}`)
   console.info(`Config provided for env "${env}"!`)
 } catch (e) {
   console.error(`No config provided for env "${env}"; using defaults!`)
