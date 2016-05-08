@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
         return Invoice.create({
           paymentMethod,
           // TODO: Check that this conversion is correct:
-          totalAmountInCents: Math.round(parseFloat(data.amount) * 100),
+          totalAmountInCents: Math.floor(parseFloat(data.amount) * 100),
           paymentDate: moment().format("L"),
           reference: data.memberId,
           paymentStatus: data.status || "new",

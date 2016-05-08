@@ -2,6 +2,7 @@ import React, { Component } from "react"
 import Errors from "./Errors.jsx"
 import Button from "./Button.jsx"
 import PaymentInfo from "./payment-info-box/PaymentInfo.jsx"
+import StripePayment from "./StripePayment.jsx"
 import $ from "jquery"
 import _ from "lodash"
 
@@ -88,7 +89,8 @@ export default class Payment extends Component {
   handleSubmit(ev) {
     ev.preventDefault()
 
-    if (this.state.paymentType === "braintree") {
+    if (this.state.paymentType === "braintree" ||
+        this.state.paymentType === "stripe") {
       // Ignore form submit, wait for `paymentInfoReceived`
       return
     }
@@ -139,11 +141,14 @@ export default class Payment extends Component {
                       <input type="radio" name="paymentType" value="braintree" onChange={this.handlePaymentTypeChanged}/>Braintree (Paypal, Credit Card)
                   </label>
                   <label>
+                      <input type="radio" name="paymentType" value="stripe" onChange={this.handlePaymentTypeChanged}/>Stripe (Credit Card)
+                  </label>
+                  <label>
                       <input type="radio" name="paymentType" value="noContribute" onChange={this.handlePaymentTypeChanged}/>I do not want to contribute.
                   </label>
               </div>
               <PaymentInfo paymentType={this.state.paymentType}
-                           paymentInfoReceived={this.paymentInfoReceived} />
+                           paymentInfoReceived={this.paymentInfoReceived}/>
               <div className={(() => this.state.paymentType === "" || this.state.paymentType === "noContribute" ? "hidden" : "")()}>
                   <div className="heading">
                     <h2 className="sub-title">Membership Contribution</h2>
@@ -156,9 +161,14 @@ export default class Payment extends Component {
                   </div>
               </div>
               <div className="navigation">
-                <Button type="submit" id="payment-continue-button"
-                        disabled={this.state.continueButtonDisabled}
-                        textContent="Continue" />
+                {this.state.paymentType === "stripe" ? (
+                  <StripePayment member={this.props.member}
+                    didUpdate={this.paymentInfoReceived} />
+                ) : (
+                  <Button type="submit" id="payment-continue-button"
+                          disabled={this.state.continueButtonDisabled}
+                          textContent="Continue" />
+                )}
               </div>
           </div>
         </fieldset>

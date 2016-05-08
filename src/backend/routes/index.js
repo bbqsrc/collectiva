@@ -2,16 +2,14 @@
 
 const Router = require("koa-rutt")
 
-//const { BraintreePayments } = require("../providers/payments/braintree")
-//const { StripePayments } = require("../providers/payments/stripe")
-
 const { MemberRoutes } = require("./member")
 const { AdminRoutes } = require("./admin")
 const { AuthenticationRoutes } = require("./auth")
 
 const { BraintreePayments } = require("../providers/payments/braintree")
 const { DirectDepositPayments } = require("../providers/payments/direct-deposit")
-const { ChequePayments } = require("../providers/payments/Cheque")
+const { ChequePayments } = require("../providers/payments/cheque")
+const { StripePayments } = require("../providers/payments/stripe")
 
 const router = new Router()
 
@@ -20,7 +18,7 @@ router
 .use(BraintreePayments)
 .use(DirectDepositPayments)
 .use(ChequePayments)
-// .use(StripePayments)
+.use(StripePayments)
 
 // Complex routes
 .use(MemberRoutes)

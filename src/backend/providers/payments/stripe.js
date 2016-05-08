@@ -2,15 +2,18 @@
 
 const stripe = require("stripe")
 
-const logger = require("./logger")
-const { Payments } = require("./payments")
+const logger = require("../../lib/logger")
+const { Payments } = require("./index")
+const { Invoice } = require("../../models")
+
+const config = require("../../../../config")
 
 class StripePayments extends Payments {
   constructor(router) {
     super(router)
 
     this.name = "stripe"
-    this.gateway = stripe(config.gateways.stripe.secretKey)
+    this.gateway = stripe(config.gateways.stripe.privateKey)
   }
 
   * generateToken(ctx) {
@@ -18,18 +21,33 @@ class StripePayments extends Payments {
   }
 
   * processPayment(ctx) {
-    const { stripeToken, amount, description } = ctx.request.body.fields
+    const { paymentInfo, amount, description, memberId } = ctx.request.fields
 
     try {
       // TODO: add metadata field like:
       // metadata: {'order_id': '6735'}
-      const res = yield stripe.charges.create({
-        amount,
+      const res = yield this.gateway.charges.create({
+        source: paymentInfo.id,
+        amount: Math.floor(parseFloat(amount) * 100),
         description,
         currency: config.gateways.stripe.currency
       })
 
-      // TODO: save result of transaction
+      console.log("stripe response", res)
+
+      const data = {
+        amount,
+        memberId,
+        status: res.paid ? "payed" : null
+      }
+      const invoice = yield Invoice.createFromFormData(this.name, data)
+
+      // TODO: email invoice
+
+      ctx.status = 200
+      ctx.body = {
+        transactionId: invoice.transactionId
+      }
     } catch (error) {
       if (error.type === "StripeCardError") {
         logger.warn("payments:stripe", "A card has been declined", { request: ctx.request, error })

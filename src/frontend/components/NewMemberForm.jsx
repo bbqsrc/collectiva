@@ -166,7 +166,8 @@ export default class NewMemberForm extends Component {
         return <Payment formValues={this.formValues}
                         previousStep={this.previousStep}
                         nextStep={this.submitPayment}
-                        errors={this.state.errors} />
+                        errors={this.state.errors}
+                        member={this.formValues} />
       case 5:
         return <Finished email={this.formValues.email} />
     }

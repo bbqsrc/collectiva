@@ -21,10 +21,11 @@ export default class PaymentInfo extends Component {
       return <BraintreeInfoBox
         didUpdate={this.props.paymentInfoReceived}/>
     }
-    if (this.props.paymentType === "creditOrDebitCard") {
-      return <StripeInfoBox
-        didUpdate={this.props.paymentInfoReceived}/>
-    }
+    // if (this.props.paymentType === "stripe") {
+    //   return <StripeInfoBox
+    //     didUpdate={this.props.paymentInfoReceived}
+    //     member={this.props.member}/>
+    // }
     if (this.props.paymentType === "deposit") {
       return <DirectDebitInfoBox
         didUpdate={this.props.paymentInfoReceived}/>
