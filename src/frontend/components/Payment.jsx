@@ -80,7 +80,6 @@ export default class Payment extends Component {
    * create a transaction.
    */
   paymentInfoReceived(info) {
-    console.log("paymentInfoReceived", info)
     this.setState({ paymentInfo: info })
 
     this.submitData(info)
@@ -104,8 +103,6 @@ export default class Payment extends Component {
       amount: this.state.amount,
       paymentInfo: info || this.state.paymentInfo
     }
-
-    console.log("submitData", payment)
 
     this.props.nextStep(payment)
   }

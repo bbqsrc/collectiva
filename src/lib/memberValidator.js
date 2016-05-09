@@ -99,12 +99,8 @@ function setUpPostCodeChecks(addressObj) {
 function isValidAddress(addressObj) {
   setUpPostCodeChecks(addressObj)
 
-//   console.log(addressObj)
-
   const addressErrors = _.reduce(addressFieldChecks, (errors, checkFn, memberFieldKey) => {
-    // console.log(errors, checkFn, memberFieldKey)
     if (!addressObj || !checkFn(addressObj[memberFieldKey])) {
-    //   console.log('error')
       errors.push(memberFieldKey)
     }
     return errors

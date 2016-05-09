@@ -31,7 +31,6 @@ export default class BraintreeInfoBox extends Component {
   }
 
   onError(err) {
-    console.log("braintree onError", err)
     this.setState({
       error: "There was a problem with the Braintree widget. Please try again later."
     })
@@ -43,7 +42,6 @@ export default class BraintreeInfoBox extends Component {
    * @param {{nonce: string, type: string, details: Object}} nonce
    */
   nonceReceived(nonce) {
-    console.log("success! nonce received", nonce)
     this.props.didUpdate(nonce)
   }
 

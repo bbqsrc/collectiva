@@ -35,9 +35,8 @@ class BraintreePayments extends Payments {
 
   * processPayment(ctx) {
     // TODO: Nicer input validation
-    const nonce = ctx.request.fields.paymentInfo.nonce
-    const amount = ctx.request.fields.amount
-    const memberId = ctx.request.fields.memberId
+    const { paymentInfo, amount, memberId } = ctx.request.fields.amount
+    const nonce = paymentInfo.nonce
 
     try {
       // TODO: investigate metadata field for processing
@@ -52,7 +51,7 @@ class BraintreePayments extends Payments {
       const data = {
         amount,
         memberId,
-        status: res.success ? "payed" : null
+        status: res.success ? "paid" : null
       }
       const invoice = yield Invoice.createFromFormData(this.name, data)
 

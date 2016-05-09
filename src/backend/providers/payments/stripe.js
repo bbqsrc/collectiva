@@ -33,12 +33,10 @@ class StripePayments extends Payments {
         currency: config.gateways.stripe.currency
       })
 
-      console.log("stripe response", res)
-
       const data = {
         amount,
         memberId,
-        status: res.paid ? "payed" : null
+        status: res.paid ? "paid" : null
       }
       const invoice = yield Invoice.createFromFormData(this.name, data)
 
